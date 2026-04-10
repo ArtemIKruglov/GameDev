@@ -13,6 +13,7 @@ export default function PlayPage() {
   const [copied, setCopied] = useState(false);
   const [showRefine, setShowRefine] = useState(false);
   const [modification, setModification] = useState("");
+  const [flagged, setFlagged] = useState(false);
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
 
@@ -31,13 +32,14 @@ export default function PlayPage() {
     setRefining(true);
     setRefineError(null);
     try {
+      // Refine returns a pending game — navigate to it (it will poll)
       const newGame = await api.refineGame(id, modification.trim());
       navigate(`/play/${newGame.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
         setRefineError(err.message);
       } else {
-        setRefineError("Refinement failed. Please try again!");
+        setRefineError("Не удалось обновить. Попробуй ещё раз!");
       }
     } finally {
       setRefining(false);
@@ -71,6 +73,9 @@ export default function PlayPage() {
         <Link to="/" style={styles.logo}>
           GameSpark
         </Link>
+        <Link to="/gallery" style={styles.galleryLink}>
+          Галерея 🏆
+        </Link>
       </header>
 
       <main style={styles.main}>
@@ -98,6 +103,21 @@ export default function PlayPage() {
           </button>
           <button onClick={() => navigate("/")} style={styles.actionButton}>
             Новая игра 🎮
+          </button>
+          <button
+            onClick={async () => {
+              if (id && !flagged) {
+                await api.flagGame(id).catch(() => {});
+                setFlagged(true);
+              }
+            }}
+            style={{
+              ...styles.reportButton,
+              opacity: flagged ? 0.5 : 1,
+            }}
+            disabled={flagged}
+          >
+            {flagged ? "Отправлено" : "Пожаловаться 🚩"}
           </button>
         </div>
 
@@ -141,6 +161,15 @@ const styles = {
 
   header: {
     padding: "1rem 2rem",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  } as React.CSSProperties,
+
+  galleryLink: {
+    color: "var(--color-text-muted)",
+    fontSize: "0.95rem",
+    textDecoration: "none",
   } as React.CSSProperties,
 
   logo: {
@@ -185,6 +214,18 @@ const styles = {
     border: "2px solid var(--color-primary)",
     borderRadius: "var(--radius)",
     minHeight: 48,
+    transition: "all 0.2s",
+  } as React.CSSProperties,
+
+  reportButton: {
+    padding: "10px 20px",
+    fontSize: "0.85rem",
+    fontWeight: 500,
+    color: "var(--color-text-muted)",
+    background: "transparent",
+    border: "1px solid var(--color-text-muted)",
+    borderRadius: "var(--radius)",
+    minHeight: 40,
     transition: "all 0.2s",
   } as React.CSSProperties,
 

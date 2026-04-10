@@ -24,6 +24,11 @@ export default function PromptInput({
 }: PromptInputProps) {
   const [value, setValue] = useState(initialValue);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  // Sync when initialValue changes (e.g. from example cards or retry)
+  useEffect(() => {
+    if (initialValue) setValue(initialValue);
+  }, [initialValue]);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 

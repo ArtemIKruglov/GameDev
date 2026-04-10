@@ -13,22 +13,20 @@ describe("LoadingScreen", () => {
 
   it("shows initial loading phase text", () => {
     render(<LoadingScreen />);
-    expect(screen.getByText("Reading your idea...")).toBeInTheDocument();
+    expect(screen.getByText(/читаем твою идею/i)).toBeInTheDocument();
   });
 
   it("shows cancel button after delay", () => {
     const onCancel = vi.fn();
     render(<LoadingScreen onCancel={onCancel} />);
 
-    // Not visible initially
-    expect(screen.queryByText("Cancel")).not.toBeInTheDocument();
+    expect(screen.queryByText(/отменить/i)).not.toBeInTheDocument();
 
-    // Advance 10 seconds
     act(() => {
       vi.advanceTimersByTime(10000);
     });
 
-    expect(screen.getByText("Cancel")).toBeInTheDocument();
+    expect(screen.getByText(/отменить/i)).toBeInTheDocument();
   });
 
   it("advances to second phase after 5 seconds", () => {
@@ -38,16 +36,11 @@ describe("LoadingScreen", () => {
       vi.advanceTimersByTime(5000);
     });
 
-    expect(
-      screen.getByText("Designing your game world..."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/рисуем игровой мир/i)).toBeInTheDocument();
   });
 
   it("shows a fun fact", () => {
     render(<LoadingScreen />);
-    // The first fun fact is displayed on mount
-    expect(
-      screen.getByText("The first video game was made in 1958!"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/1958/)).toBeInTheDocument();
   });
 });

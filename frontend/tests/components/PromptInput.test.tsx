@@ -14,7 +14,7 @@ describe("PromptInput", () => {
 
   it("submit button disabled when input too short", () => {
     render(<PromptInput onSubmit={() => {}} />);
-    const button = screen.getByRole("button", { name: /create my game/i });
+    const button = screen.getByRole("button", { name: /создать игру/i });
     expect(button).toBeDisabled();
   });
 
@@ -22,7 +22,7 @@ describe("PromptInput", () => {
     render(<PromptInput onSubmit={() => {}} />);
     const textarea = screen.getByRole("textbox");
     fireEvent.change(textarea, { target: { value: "A cat game with stars" } });
-    const button = screen.getByRole("button", { name: /create my game/i });
+    const button = screen.getByRole("button", { name: /создать игру/i });
     expect(button).toBeEnabled();
   });
 
@@ -33,7 +33,7 @@ describe("PromptInput", () => {
     fireEvent.change(textarea, {
       target: { value: "A cool platformer game" },
     });
-    const button = screen.getByRole("button", { name: /create my game/i });
+    const button = screen.getByRole("button", { name: /создать игру/i });
     fireEvent.click(button);
     expect(handleSubmit).toHaveBeenCalledWith("A cool platformer game");
   });

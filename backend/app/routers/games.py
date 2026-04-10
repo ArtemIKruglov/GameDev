@@ -62,102 +62,76 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
             detail={"error": "content_filtered", "message": reason},
         )
 
-    # Create pending game
+    # Create pending game — return IMMEDIATELY, generate in background
     game_id = str(uuid.uuid4())
     await create_game(game_id, body.prompt, session_id=session_id)
     logger.info("Game %s created (pending) for session %s", game_id, session_id)
 
+    # Launch background generation task
+    import asyncio
+
+    asyncio.create_task(_generate_in_background(game_id, body.prompt, session_id))
+
+    # Return pending game immediately — frontend will poll
+    game = await get_game(game_id)
+    return _game_to_response(game)
+
+
+async def _generate_in_background(
+    game_id: str, prompt: str, session_id: str
+) -> None:
+    """Background task: generate game via AI, update DB when done."""
     try:
         max_attempts = 2
+        result = None
 
         for attempt in range(max_attempts):
-            prompt_text = body.prompt
+            prompt_text = prompt
             if attempt > 0:
-                retry_suffix = (
-                    "\n\nIMPORTANT: Generate a working, complete HTML game."
-                    " Ensure all JavaScript is correct."
+                prompt_text = (
+                    f"{prompt}\n\nIMPORTANT: Generate a working, "
+                    "complete HTML game. Ensure all JavaScript is correct."
                 )
-                prompt_text = f"{body.prompt}{retry_suffix}"
                 logger.info("Game %s: retry attempt %d", game_id, attempt + 1)
 
             result = await generate_game(prompt_text)
 
-            # Filter output
-            output_safe, output_reason = filter_output(result["html"])
+            output_safe, _ = filter_output(result["html"])
             if not output_safe:
-                logger.warning(
-                    "Game %s: output filter failed (attempt %d): %s",
-                    game_id,
-                    attempt + 1,
-                    output_reason,
-                )
                 if attempt < max_attempts - 1:
                     continue
-                await update_game(game_id, status="failed", error_message=output_reason)
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "error": "content_filtered",
-                        "message": f"Generated game failed safety check: {output_reason}",
-                    },
-                )
+                await update_game(game_id, status="failed", error_message="safety")
+                return
 
-            # Validate quality
-            is_valid, validation_msg = validate_game_html(result["html"])
+            is_valid, _ = validate_game_html(result["html"])
             if not is_valid:
-                logger.warning(
-                    "Game %s: validation failed (attempt %d): %s",
-                    game_id,
-                    attempt + 1,
-                    validation_msg,
-                )
                 if attempt < max_attempts - 1:
                     continue
-                await update_game(game_id, status="failed", error_message=validation_msg)
-                raise HTTPException(
-                    status_code=503,
-                    detail={
-                        "error": "generation_failed",
-                        "message": "Game creation failed. Please try again!",
-                    },
-                )
+                await update_game(game_id, status="failed", error_message="invalid")
+                return
 
-            # Success
             break
 
-        game = await update_game(
-            game_id,
-            html_content=result["html"],
-            status="ready",
-            model_used=result["model"],
-            generation_time_ms=result["time_ms"],
-            token_count=result["tokens"],
-        )
+        if result:
+            await update_game(
+                game_id,
+                html_content=result["html"],
+                status="ready",
+                model_used=result["model"],
+                generation_time_ms=result["time_ms"],
+                token_count=result["tokens"],
+            )
+            await record_rate_usage(session_id)
+            logger.info(
+                "Game %s ready: model=%s, time=%dms",
+                game_id,
+                result["model"],
+                result["time_ms"],
+            )
 
-        # Record rate usage only after successful generation
-        await record_rate_usage(session_id)
-        logger.info(
-            "Game %s completed: model=%s, time=%dms, tokens=%d",
-            game_id,
-            result["model"],
-            result["time_ms"],
-            result["tokens"],
-        )
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.exception("Game generation failed for game %s", game_id)
+        logger.exception("Background generation failed for %s", game_id)
         await update_game(game_id, status="failed", error_message=str(e))
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "generation_failed",
-                "message": "Game creation failed. Please try again!",
-            },
-        )
-
-    return _game_to_response(game)
 
 
 @router.get("/games", response_model=GameListResponse)
@@ -270,67 +244,30 @@ async def refine_game_endpoint(game_id: str, body: GameRefineRequest, request: R
             detail={"error": "content_filtered", "message": reason},
         )
 
-    # Create new game linked to original
+    # Create new game linked to original — return immediately
     new_game_id = str(uuid.uuid4())
+    new_prompt = f"{original['prompt']} (refined: {body.modification})"
     await create_game(
         new_game_id,
-        f"{original['prompt']} (refined: {body.modification})",
+        new_prompt,
         session_id=session_id,
         parent_game_id=game_id,
     )
 
-    # Build refinement prompt — include original HTML + modification
+    # Build refinement prompt
     refine_prompt = (
-        f"Here is an existing HTML game:\n\n"
+        f"Вот существующая HTML-игра:\n\n"
         f"```html\n{original['html_content']}\n```\n\n"
-        f"The player wants to change: {body.modification}\n\n"
-        f"Generate the COMPLETE updated HTML game with this change applied. "
-        f"Keep everything else the same."
+        f"Игрок хочет изменить: {body.modification}\n\n"
+        f"Сгенерируй ПОЛНУЮ обновлённую HTML-игру с этим изменением. "
+        f"Остальное оставь как есть."
     )
 
-    try:
-        result = await generate_game(refine_prompt)
+    import asyncio
 
-        output_safe, output_reason = filter_output(result["html"])
-        if not output_safe:
-            await update_game(new_game_id, status="failed", error_message=output_reason)
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "content_filtered", "message": "Refined game failed safety check"},
-            )
+    asyncio.create_task(
+        _generate_in_background(new_game_id, refine_prompt, session_id)
+    )
 
-        is_valid, validation_msg = validate_game_html(result["html"])
-        if not is_valid:
-            await update_game(new_game_id, status="failed", error_message=validation_msg)
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "error": "generation_failed",
-                    "message": "The refined game didn't come out right. Try again!",
-                },
-            )
-
-        game = await update_game(
-            new_game_id,
-            html_content=result["html"],
-            status="ready",
-            model_used=result["model"],
-            generation_time_ms=result["time_ms"],
-            token_count=result["tokens"],
-        )
-        await record_rate_usage(session_id)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Game refinement failed for game %s", new_game_id)
-        await update_game(new_game_id, status="failed", error_message=str(e))
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "generation_failed",
-                "message": "Refinement failed. Please try again!",
-            },
-        )
-
+    game = await get_game(new_game_id)
     return _game_to_response(game)

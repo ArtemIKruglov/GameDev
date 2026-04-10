@@ -3,6 +3,7 @@ import HomePage from "./pages/HomePage";
 import PlayPage from "./pages/PlayPage";
 import GalleryPage from "./pages/GalleryPage";
 import PrivacyPage from "./pages/PrivacyPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/play/:id" element={<PlayPage />} />
       <Route path="/gallery" element={<GalleryPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

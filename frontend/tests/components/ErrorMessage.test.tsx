@@ -10,61 +10,42 @@ function renderWith(ui: React.ReactElement) {
 describe("ErrorMessage", () => {
   it("shows correct message for generation_failed", () => {
     renderWith(<ErrorMessage type="generation_failed" />);
-    expect(screen.getByText("Hmm, that game had a bug!")).toBeInTheDocument();
-    expect(
-      screen.getByText("Even the best game makers need a second try."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/в игре баг/i)).toBeInTheDocument();
   });
 
   it("shows correct message for rate_limited", () => {
     renderWith(<ErrorMessage type="rate_limited" />);
-    expect(screen.getByText("Wow, you've been busy!")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "You've been creating so many games! Take a break and come back in a bit.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/создаёшь кучу игр/i)).toBeInTheDocument();
   });
 
   it("shows correct message for content_blocked", () => {
     renderWith(<ErrorMessage type="content_blocked" />);
-    expect(
-      screen.getByText("Let's keep it fun and friendly!"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/что-то другое/i)).toBeInTheDocument();
   });
 
-  it("shows correct message for content_filtered (backend error code)", () => {
+  it("shows correct message for content_filtered", () => {
     renderWith(<ErrorMessage type="content_filtered" />);
-    expect(
-      screen.getByText("Let's keep it fun and friendly!"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Let's keep our games fun and friendly! Try a different idea.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/что-то другое/i)).toBeInTheDocument();
   });
 
   it("shows default message for unknown type", () => {
     renderWith(<ErrorMessage type="something_random" />);
-    expect(
-      screen.getByText("Oops! Something went wrong."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/что-то пошло не так/i)).toBeInTheDocument();
   });
 
-  it("calls onRetry when Try Again clicked", () => {
+  it("calls onRetry when button clicked", () => {
     const handleRetry = vi.fn();
     renderWith(<ErrorMessage type="generation_failed" onRetry={handleRetry} />);
-    fireEvent.click(screen.getByText("Try Again"));
+    fireEvent.click(screen.getByText(/попробовать/i));
     expect(handleRetry).toHaveBeenCalledOnce();
   });
 
-  it("calls onChangeIdea when Change My Idea clicked", () => {
+  it("calls onChangeIdea when button clicked", () => {
     const handleChange = vi.fn();
     renderWith(
       <ErrorMessage type="generation_failed" onChangeIdea={handleChange} />,
     );
-    fireEvent.click(screen.getByText("Change My Idea"));
+    fireEvent.click(screen.getByText(/другая идея/i));
     expect(handleChange).toHaveBeenCalledOnce();
   });
 });

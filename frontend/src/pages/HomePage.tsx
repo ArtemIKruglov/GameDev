@@ -18,11 +18,13 @@ type View = "input" | "loading" | "error";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { createGame, error, loading, reset } = useCreateGame();
+  const { createGame, error, loading, lastPrompt, reset } = useCreateGame();
   const [view, setView] = useState<View>("input");
+  const [promptForInput, setPromptForInput] = useState("");
 
   const handleSubmit = useCallback(
     async (prompt: string) => {
+      setPromptForInput(prompt);
       setView("loading");
       const game = await createGame(prompt);
       if (game) {
@@ -52,9 +54,13 @@ export default function HomePage() {
       <div style={styles.page}>
         <ErrorMessage
           type={error}
-          onRetry={() => setView("input")}
+          onRetry={() => {
+            // BUG-3 fix: preserve the prompt on retry
+            setView("input");
+          }}
           onChangeIdea={() => {
             reset();
+            setPromptForInput("");
             setView("input");
           }}
         />
@@ -78,7 +84,11 @@ export default function HomePage() {
           Опиши свою мечту — а ИИ соберёт её за минуту!
         </p>
 
-        <PromptInput onSubmit={handleSubmit} disabled={loading} />
+        <PromptInput
+          onSubmit={handleSubmit}
+          disabled={loading}
+          initialValue={promptForInput || lastPrompt}
+        />
 
         <section style={styles.examples}>
           <h3 style={styles.examplesTitle}>Нет идей? Попробуй одну из этих! 👇</h3>
@@ -87,9 +97,7 @@ export default function HomePage() {
               <button
                 key={example}
                 style={styles.exampleCard}
-                onClick={() => {
-                  if (example.trim().length >= 10) handleSubmit(example);
-                }}
+                onClick={() => setPromptForInput(example)}
               >
                 {example}
               </button>

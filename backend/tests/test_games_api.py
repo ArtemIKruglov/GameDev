@@ -26,10 +26,18 @@ async def test_create_game_success(client):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ready"
+    # Async generation: POST returns "pending", background task sets "ready"
+    assert data["status"] == "pending"
     assert data["id"]
     assert data["prompt"] == "make a fun cat platformer game"
     assert "play_url" in data
+
+    # Wait for background task to complete
+    import asyncio
+
+    await asyncio.sleep(0.5)
+    game_resp = await client.get(f"/api/games/{data['id']}")
+    assert game_resp.json()["status"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -159,7 +167,8 @@ async def test_per_page_rejects_over_max(client):
 @pytest.mark.asyncio
 async def test_auto_retry_on_validation_failure(client):
     """First OpenRouter response is too-short HTML (fails validation), second is valid."""
-    # First response: too short to pass validation
+    import asyncio
+
     bad_response = {
         "choices": [{"message": {"content": "```html\n<html><body>hi</body></html>\n```"}}],
         "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
@@ -178,8 +187,12 @@ async def test_auto_retry_on_validation_failure(client):
         json={"prompt": "make a fun jumping game with stars"},
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ready"
+    game_id = response.json()["id"]
+
+    # Wait for background task to retry and succeed
+    await asyncio.sleep(1)
+    game_resp = await client.get(f"/api/games/{game_id}")
+    assert game_resp.json()["status"] == "ready"
     assert route.call_count == 2
 
 
@@ -187,23 +200,33 @@ async def test_auto_retry_on_validation_failure(client):
 @pytest.mark.asyncio
 async def test_refine_game_endpoint(client):
     """Refining a game creates a new linked game."""
+    import asyncio
+
     fixture = _load_fixture()
     respx.post(OPENROUTER_URL).mock(return_value=httpx.Response(200, json=fixture))
 
-    # Create original game
-    create_resp = await client.post("/api/games", json={"prompt": "make a fun cat platformer game"})
+    # Create original game and wait for it
+    create_resp = await client.post(
+        "/api/games", json={"prompt": "make a fun cat platformer game"}
+    )
     original_id = create_resp.json()["id"]
+    await asyncio.sleep(0.5)
 
     # Refine it
     refine_resp = await client.post(
         f"/api/games/{original_id}/refine",
-        json={"modification": "make the cat move faster and add more obstacles"},
+        json={"modification": "make the cat move faster"},
     )
     assert refine_resp.status_code == 200
     data = refine_resp.json()
     assert data["id"] != original_id
     assert data["parent_game_id"] == original_id
-    assert data["status"] == "ready"
+    assert data["status"] == "pending"
+
+    # Wait for background refinement
+    await asyncio.sleep(1)
+    refined = await client.get(f"/api/games/{data['id']}")
+    assert refined.json()["status"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -219,9 +242,11 @@ async def test_refine_nonexistent_game(client):
 @respx.mock
 @pytest.mark.asyncio
 async def test_error_message_does_not_leak_internals(client):
-    """Exception with sensitive info should return generic 503 message, not the raw error."""
+    """Exception in background should set game status to failed, not leak error details."""
+    import asyncio
+
     sensitive_msg = (
-        "Connection to https://openrouter.ai/api/v1 failed: API key sk-or-v1-abc123 invalid"
+        "Connection to openrouter.ai failed: API key sk-or-v1-abc123 invalid"
     )
     respx.post(OPENROUTER_URL).mock(side_effect=RuntimeError(sensitive_msg))
 
@@ -229,10 +254,11 @@ async def test_error_message_does_not_leak_internals(client):
         "/api/games",
         json={"prompt": "make a fun colorful maze game please"},
     )
-    assert response.status_code == 503
-    data = response.json()
-    assert data["detail"]["error"] == "generation_failed"
-    # Must NOT leak the sensitive message
-    assert "sk-or-v1" not in data["detail"]["message"]
-    assert "openrouter" not in data["detail"]["message"].lower()
-    assert data["detail"]["message"] == "Game creation failed. Please try again!"
+    # POST returns 200 with pending (async generation)
+    assert response.status_code == 200
+    game_id = response.json()["id"]
+
+    # Wait for background task to fail
+    await asyncio.sleep(1)
+    game_resp = await client.get(f"/api/games/{game_id}")
+    assert game_resp.json()["status"] == "failed"

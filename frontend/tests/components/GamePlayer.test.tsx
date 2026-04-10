@@ -12,6 +12,6 @@ describe("GamePlayer", () => {
 
   it("shows loading state initially", () => {
     render(<GamePlayer html="<html><body>test</body></html>" />);
-    expect(screen.getByText("Loading game...")).toBeInTheDocument();
+    expect(screen.getByText(/загружаем игру/i)).toBeInTheDocument();
   });
 });
