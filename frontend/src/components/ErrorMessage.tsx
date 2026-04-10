@@ -9,26 +9,26 @@ interface ErrorMessageProps {
 
 const MESSAGES: Record<string, { heading: string; body: string }> = {
   generation_failed: {
-    heading: "Hmm, that game had a bug!",
-    body: "Even the best game makers need a second try.",
+    heading: "Ой, в игре баг! 🐛",
+    body: "Даже у лучших разработчиков бывают баги. Попробуем ещё раз?",
   },
   rate_limited: {
-    heading: "Wow, you've been busy!",
-    body: "You've been creating so many games! Take a break and come back in a bit.",
+    heading: "Ого, ты создаёшь кучу игр! 🎮",
+    body: "Передохни немножко и возвращайся — мы никуда не денемся!",
   },
   content_blocked: {
-    heading: "Let's keep it fun and friendly!",
-    body: "Let's keep our games fun and friendly! Try a different idea.",
+    heading: "Давай придумаем что-то другое! 🌈",
+    body: "Попробуй другую идею — что-нибудь весёлое и доброе!",
   },
   content_filtered: {
-    heading: "Let's keep it fun and friendly!",
-    body: "Let's keep our games fun and friendly! Try a different idea.",
+    heading: "Давай придумаем что-то другое! 🌈",
+    body: "Попробуй другую идею — что-нибудь весёлое и доброе!",
   },
 };
 
 const DEFAULT_MESSAGE = {
-  heading: "Oops! Something went wrong.",
-  body: "Don't worry, even game consoles need a restart sometimes.",
+  heading: "Упс! Что-то пошло не так 🤖",
+  body: "Не переживай, даже игровые приставки иногда зависают!",
 };
 
 export default function ErrorMessage({
@@ -50,16 +50,16 @@ export default function ErrorMessage({
       <div style={styles.actions}>
         {onRetry && (
           <button onClick={onRetry} style={styles.primaryButton}>
-            Try Again
+            Попробовать ещё 🔄
           </button>
         )}
         {onChangeIdea && (
           <button onClick={onChangeIdea} style={styles.secondaryButton}>
-            Change My Idea
+            Другая идея 💡
           </button>
         )}
         <Link to="/" style={styles.linkButton}>
-          Go Home
+          На главную
         </Link>
       </div>
     </div>

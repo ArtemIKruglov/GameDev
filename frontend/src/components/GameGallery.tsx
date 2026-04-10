@@ -17,7 +17,7 @@ export default function GameGallery({
   if (!loading && games.length === 0) {
     return (
       <div style={styles.empty}>
-        <p style={styles.emptyText}>No games yet. Be the first to create one!</p>
+        <p style={styles.emptyText}>Пока нет игр. Будь первым — создай свою! 🎮</p>
       </div>
     );
   }
@@ -37,7 +37,7 @@ export default function GameGallery({
       {hasMore && !loading && (
         <div style={styles.loadMoreWrapper}>
           <button onClick={onLoadMore} style={styles.loadMoreButton}>
-            Load More
+            Ещё игры 👇
           </button>
         </div>
       )}

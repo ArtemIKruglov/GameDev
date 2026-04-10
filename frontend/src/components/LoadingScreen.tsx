@@ -1,18 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
 
 const PHASES = [
-  { text: "Reading your idea...", endSec: 5 },
-  { text: "Designing your game world...", endSec: 15 },
-  { text: "Adding the fun parts...", endSec: 25 },
-  { text: "Polishing and testing...", endSec: Infinity },
+  { text: "Читаем твою идею... 🤔", endSec: 5 },
+  { text: "Рисуем игровой мир... 🎨", endSec: 15 },
+  { text: "Добавляем веселье... 🎮", endSec: 30 },
+  { text: "Тестируем и полируем... ✨", endSec: 60 },
+  { text: "Почти готово, ещё чуть-чуть... 🔥", endSec: Infinity },
 ];
 
 const FUN_FACTS = [
-  "The first video game was made in 1958!",
-  "Pac-Man was inspired by a pizza with one slice missing.",
-  "Mario was originally called Jumpman!",
-  "The Game Boy sold over 118 million units!",
-  "Minecraft was created in just 6 days!",
+  "Первая видеоигра была создана в 1958 году! 🕹️",
+  "Пакмана придумали, глядя на пиццу без одного куска 🍕",
+  "Марио сначала звали Прыгун (Jumpman)! 🍄",
+  "Game Boy продали больше 118 миллионов штук! 😱",
+  "Minecraft создали всего за 6 дней! ⛏️",
+  "В Тетрисе нельзя выиграть — можно только проиграть 🧱",
+  "Самая дорогая игра в разработке — GTA V ($265 млн) 💰",
+  "Sonic изначально был кроликом 🐰 → стал ёжиком 🦔",
 ];
 
 interface LoadingScreenProps {
@@ -68,7 +72,7 @@ export default function LoadingScreen({ onCancel }: LoadingScreenProps) {
 
       {showCancel && onCancel && (
         <button onClick={onCancel} style={styles.cancelButton}>
-          Cancel
+          Отменить
         </button>
       )}
 

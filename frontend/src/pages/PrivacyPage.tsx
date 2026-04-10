@@ -3,66 +3,60 @@ import { Link } from "react-router-dom";
 export default function PrivacyPage() {
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "2rem", lineHeight: 1.7 }}>
-      <h1>Privacy Policy</h1>
+      <h1>Приватность 🔒</h1>
       <p style={{ marginTop: "1rem", color: "var(--color-text-muted)" }}>
-        GameSpark is built for kids and families. We take your privacy seriously
-        and keep things simple.
+        GameSpark создан для детей и их семей. Мы серьёзно относимся
+        к приватности и всё делаем просто.
       </p>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>What We Collect</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Что мы сохраняем</h2>
       <ul style={{ marginTop: "0.5rem" }}>
-        <li>
-          <strong>Game ideas</strong> &mdash; the prompts you type to describe your game.
-        </li>
-        <li>
-          <strong>Generated games</strong> &mdash; the HTML games our AI creates for you.
-        </li>
+        <li><strong>Идеи игр</strong> &mdash; текст, который ты пишешь.</li>
+        <li><strong>Созданные игры</strong> &mdash; HTML-игры, которые делает ИИ.</li>
       </ul>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>What We Do NOT Collect</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Что мы НЕ собираем</h2>
       <ul style={{ marginTop: "0.5rem" }}>
-        <li>No names, emails, or ages</li>
-        <li>No passwords or accounts</li>
-        <li>No personal information of any kind</li>
+        <li>Никаких имён, email или возраста</li>
+        <li>Никаких паролей или аккаунтов</li>
+        <li>Никакой личной информации вообще</li>
       </ul>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Anonymous Sessions</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Анонимные сессии</h2>
       <p style={{ marginTop: "0.5rem" }}>
-        When you visit GameSpark, we create a random session ID stored in a cookie
-        that expires after 24 hours. This ID is used only to show you your own
-        games and to prevent abuse. It cannot be used to identify you.
+        Когда ты заходишь на GameSpark, мы создаём случайный ID в cookie,
+        который живёт 24 часа. Он нужен только чтобы показывать тебе
+        твои игры и защищать от злоупотреблений. По нему нельзя тебя узнать.
       </p>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Data Retention</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Хранение данных</h2>
       <p style={{ marginTop: "0.5rem" }}>
-        All games and prompts are <strong>automatically deleted after 30 days</strong>.
-        Nothing is kept forever.
+        Все игры и идеи <strong>автоматически удаляются через 30 дней</strong>.
+        Ничего не хранится вечно.
       </p>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Third-Party Services</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Сторонние сервисы</h2>
       <p style={{ marginTop: "0.5rem" }}>
-        When you create a game, your game idea (prompt) is sent to an AI service
-        (OpenRouter) to generate the game. OpenRouter processes the prompt and
-        returns the result. We do not send any personal information to this service.
+        Когда ты создаёшь игру, твоя идея отправляется в ИИ-сервис
+        (OpenRouter) для генерации. Мы не отправляем туда никакой личной
+        информации.
       </p>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>No Tracking</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Без слежки</h2>
       <ul style={{ marginTop: "0.5rem" }}>
-        <li>No analytics or tracking scripts</li>
-        <li>No advertising</li>
-        <li>No third-party cookies</li>
-        <li>No data shared with anyone else</li>
+        <li>Нет аналитики или трекинга</li>
+        <li>Нет рекламы</li>
+        <li>Нет сторонних cookie</li>
+        <li>Данные никому не передаются</li>
       </ul>
 
-      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Questions?</h2>
+      <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Вопросы?</h2>
       <p style={{ marginTop: "0.5rem" }}>
-        If you have any questions about how GameSpark handles your data, please
-        ask a parent or teacher to get in touch with us.
+        Если есть вопросы — попроси родителя или учителя связаться с нами!
       </p>
 
       <Link to="/" style={{ marginTop: "2rem", display: "inline-block", color: "var(--color-primary)" }}>
-        Back to Home
-      </Link>
+        На главную 🏠</Link>
     </div>
   );
 }

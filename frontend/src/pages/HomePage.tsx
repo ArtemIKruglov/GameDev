@@ -6,12 +6,12 @@ import ErrorMessage from "../components/ErrorMessage";
 import { useCreateGame } from "../hooks/useCreateGame";
 
 const EXAMPLES = [
-  "A game where a cat jumps between rooftops collecting stars",
-  "A space invaders clone with neon colors",
-  "A whack-a-mole game with funny aliens",
-  "A platformer where a robot collects gears",
-  "A typing speed game with falling letters",
-  "A memory card matching game with animals",
+  "Котик прыгает по крышам и собирает звёздочки 🐱⭐",
+  "Космический шутер с неоновыми цветами 🚀💜",
+  "Бей кротов, но кроты — это смешные инопланетяне 👾🔨",
+  "Робот бежит по платформам и собирает шестерёнки ⚙️🤖",
+  "Печатай буквы быстрее, чем они падают! ⌨️💨",
+  "Найди пару — мемори с животными 🐻🐼🦊",
 ];
 
 type View = "input" | "loading" | "error";
@@ -67,21 +67,21 @@ export default function HomePage() {
       <header style={styles.header}>
         <h1 style={styles.logo}>GameSpark</h1>
         <nav style={styles.nav}>
-          <Link to="/gallery" style={styles.navLink}>Gallery</Link>
-          <Link to="/privacy" style={styles.navLink}>Privacy</Link>
+          <Link to="/gallery" style={styles.navLink}>Галерея</Link>
+          <Link to="/privacy" style={styles.navLink}>Приватность</Link>
         </nav>
       </header>
 
       <main style={styles.main}>
-        <h2 style={styles.heading}>What game do you want to make?</h2>
+        <h2 style={styles.heading}>Какую игру ты хочешь создать? 🎮</h2>
         <p style={styles.subheading}>
-          Describe your dream game and AI will build it in seconds
+          Опиши свою мечту — а ИИ соберёт её за минуту!
         </p>
 
         <PromptInput onSubmit={handleSubmit} disabled={loading} />
 
         <section style={styles.examples}>
-          <h3 style={styles.examplesTitle}>Need ideas? Try one of these:</h3>
+          <h3 style={styles.examplesTitle}>Нет идей? Попробуй одну из этих! 👇</h3>
           <div style={styles.examplesGrid}>
             {EXAMPLES.map((example) => (
               <button
@@ -99,8 +99,8 @@ export default function HomePage() {
       </main>
 
       <footer style={styles.footer}>
-        <p>Made for kids who dream big</p>
-        <Link to="/privacy">Privacy</Link>
+        <p>Сделано для тех, кто мечтает по-крупному ✨</p>
+        <Link to="/privacy">Приватность</Link>
       </footer>
     </div>
   );

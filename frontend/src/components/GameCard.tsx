@@ -9,13 +9,13 @@ function timeAgo(dateString: string): string {
   const seconds = Math.floor(
     (Date.now() - new Date(dateString).getTime()) / 1000,
   );
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return "только что";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return `${minutes} мин назад`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  if (hours < 24) return `${hours} ч назад`;
   const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
+  return `${days} дн назад`;
 }
 
 function truncate(text: string, maxLen: number): string {
@@ -29,7 +29,7 @@ export default function GameCard({ game }: GameCardProps) {
       <p style={styles.prompt}>{truncate(game.prompt, 80)}</p>
       <span style={styles.time}>{timeAgo(game.created_at)}</span>
       <Link to={`/play/${game.id}`} style={styles.playButton}>
-        Play
+        Играть 🎮
       </Link>
     </div>
   );

@@ -57,7 +57,7 @@ export default function PlayPage() {
       <div style={styles.page}>
         <ErrorMessage
           type="generation_failed"
-          message={error || "Game not found"}
+          message={error || "Игра не найдена"}
           onRetry={() => navigate(0)}
           onChangeIdea={() => navigate("/")}
         />
@@ -76,7 +76,7 @@ export default function PlayPage() {
       <main style={styles.main}>
         {game.parent_game_id && (
           <Link to={`/play/${game.parent_game_id}`} style={styles.backLink}>
-            Back to original
+            Назад к оригиналу
           </Link>
         )}
 
@@ -88,16 +88,16 @@ export default function PlayPage() {
 
         <div style={styles.actions}>
           <button onClick={handleShare} style={styles.actionButton}>
-            {copied ? "Copied!" : "Share"}
+            {copied ? "Скопировано!" : "Поделиться 🔗"}
           </button>
           <button
             onClick={() => setShowRefine((v) => !v)}
             style={styles.actionButton}
           >
-            Change Something
+            Изменить что-то 🔧
           </button>
           <button onClick={() => navigate("/")} style={styles.actionButton}>
-            New Game
+            Новая игра 🎮
           </button>
         </div>
 
@@ -107,7 +107,7 @@ export default function PlayPage() {
               type="text"
               value={modification}
               onChange={(e) => setModification(e.target.value)}
-              placeholder="e.g. make the character move faster"
+              placeholder="Например: сделай персонажа быстрее"
               style={styles.refineInput}
               maxLength={500}
               disabled={refining}
@@ -120,7 +120,7 @@ export default function PlayPage() {
                 opacity: refining || modification.trim().length < 3 ? 0.5 : 1,
               }}
             >
-              {refining ? "Updating..." : "Update My Game"}
+              {refining ? "Обновляем... ⏳" : "Обновить игру! ✨"}
             </button>
             {refineError && (
               <p style={styles.refineError}>{refineError}</p>

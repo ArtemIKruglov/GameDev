@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const PLACEHOLDERS = [
-  "A game where a cat catches falling fish...",
-  "A space shooter where you dodge asteroids...",
-  "A maze game where you escape from a dragon...",
-  "A puzzle where you connect matching colors...",
-  "A racing game with a penguin on ice...",
+  "Игра, где котик ловит падающую рыбку...",
+  "Космический шутер, где уворачиваешься от астероидов...",
+  "Лабиринт, где нужно сбежать от дракона...",
+  "Головоломка — соединяй цвета по парам...",
+  "Гонки на пингвинах по льду...",
 ];
 
 const MAX_CHARS = 500;
@@ -90,7 +90,7 @@ export default function PromptInput({
           disabled={disabled}
           rows={4}
           style={styles.textarea}
-          aria-label="Describe your game idea"
+          aria-label="Опиши свою игру"
         />
         <span style={styles.charCount}>
           {value.length} / {MAX_CHARS}
@@ -106,14 +106,14 @@ export default function PromptInput({
               ...styles.micButton,
               ...(listening ? styles.micActive : {}),
             }}
-            aria-label={listening ? "Stop listening" : "Speak your idea"}
+            aria-label={listening ? "Стоп" : "Скажи голосом"}
           >
             {listening ? "..." : "🎤"}
           </button>
         )}
 
         <button type="submit" disabled={!canSubmit} style={styles.submitButton(canSubmit)}>
-          Create My Game!
+          Создать игру! 🚀
         </button>
       </div>
     </form>

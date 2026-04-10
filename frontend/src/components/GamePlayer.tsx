@@ -89,14 +89,14 @@ export default function GamePlayer({ html, onError, onLoad }: GamePlayerProps) {
       {state === "loading" && (
         <div style={styles.overlay}>
           <div style={styles.spinner} />
-          <p>Loading game...</p>
+          <p>Загружаем игру... 🎮</p>
         </div>
       )}
 
       {state === "error" && (
         <div style={styles.overlay}>
           <p style={styles.errorText}>
-            The game had a hiccup! It might need a refresh.
+            Игра чуть-чуть сглючила! Попробуй обновить 🔄
           </p>
         </div>
       )}
@@ -116,7 +116,7 @@ export default function GamePlayer({ html, onError, onLoad }: GamePlayerProps) {
         style={styles.fullscreenButton}
         aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
       >
-        {fullscreen ? "Exit" : "Fullscreen"}
+        {fullscreen ? "Выйти" : "На весь экран"}
       </button>
 
     </div>

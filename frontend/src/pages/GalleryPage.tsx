@@ -11,9 +11,9 @@ export default function GalleryPage() {
         <Link to="/" style={styles.logo}>
           GameSpark
         </Link>
-        <h1 style={styles.title}>Game Gallery</h1>
+        <h1 style={styles.title}>Галерея игр 🏆</h1>
         <Link to="/" style={styles.createLink}>
-          Create a Game
+          Создать игру 🚀
         </Link>
       </header>
 
