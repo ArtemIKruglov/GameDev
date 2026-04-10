@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -6,7 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # ──────────────────────────────────────────────
+  # Stage 1: Lint (parallel)
+  # ──────────────────────────────────────────────
   backend-lint:
     runs-on: ubuntu-latest
     defaults:
@@ -17,7 +25,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff mypy
+          cache: "pip"
+      - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
 
@@ -36,6 +45,9 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
 
+  # ──────────────────────────────────────────────
+  # Stage 2: Test (parallel, after lint)
+  # ──────────────────────────────────────────────
   backend-test:
     needs: backend-lint
     runs-on: ubuntu-latest
@@ -44,15 +56,22 @@ jobs:
         working-directory: backend
     env:
       DATABASE_PATH: ":memory:"
-      OPENROUTER_API_KEY: "test-key"
-      SESSION_SECRET: "test-secret"
+      OPENROUTER_API_KEY: "test-key-for-ci"
+      SESSION_SECRET: "test-secret-for-ci"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
       - run: pip install -e ".[dev]"
-      - run: python -m pytest -n auto --cov=app --cov-fail-under=70 -v
+      - run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-fail-under=70 -v
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/.coverage
 
   frontend-test:
     needs: frontend-lint
@@ -68,15 +87,107 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npx vitest run
+      - run: npx vitest run --reporter=verbose
 
+  # ──────────────────────────────────────────────
+  # Stage 3: Build Docker images
+  # ──────────────────────────────────────────────
   build:
     needs: [backend-test, frontend-test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend
+
+      - name: Build backend image
         run: docker build -t gamespark-backend ./backend
-      - name: Build frontend
+
+      - name: Build frontend image
         run: docker build -t gamespark-frontend ./frontend
+
+      - name: Verify containers start
+        run: |
+          docker network create test-net
+          docker run -d --name backend --network test-net \
+            -e OPENROUTER_API_KEY=test \
+            -e DATABASE_PATH=:memory: \
+            -e SESSION_SECRET=test \
+            -e CORS_ORIGINS=* \
+            gamespark-backend
+          sleep 3
+          docker run -d --name frontend --network test-net \
+            -p 8080:80 \
+            gamespark-frontend
+          sleep 2
+          # Health check
+          docker exec backend python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/health').read().decode())"
+
+  # ──────────────────────────────────────────────
+  # Stage 4: Deploy to Yandex Cloud (main only)
+  # ──────────────────────────────────────────────
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no yc-user@$VM_HOST"
+
+          # 1. Sync project files to VM
+          rsync -azP --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='__pycache__' \
+            --exclude='*.egg-info' \
+            --exclude='.env' \
+            --exclude='data/' \
+            --exclude='.pytest_cache' \
+            --exclude='.ruff_cache' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            ./ "yc-user@$VM_HOST:~/app/"
+
+          # 2. Write production .env
+          $SSH_CMD bash -c "cat > ~/app/.env << 'ENVEOF'
+          OPENROUTER_API_KEY=$OPENROUTER_API_KEY
+          DATABASE_PATH=/app/data/games.db
+          ENVIRONMENT=production
+          CORS_ORIGINS=http://$VM_HOST
+          RATE_LIMIT_PER_HOUR=10
+          RATE_LIMIT_PER_DAY=30
+          SESSION_SECRET=$SESSION_SECRET
+          ENVEOF"
+
+          # 3. Build and restart with zero-downtime
+          $SSH_CMD bash -c "
+            cd ~/app
+            sudo docker compose -f docker-compose.prod.yml build
+            sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            sleep 10
+            # Health check
+            curl -sf http://localhost/api/health || echo 'WARNING: health check failed'
+          "
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.VM_HOST }}/api/health" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Deployment verified: HTTP $HTTP_CODE"
+          else
+            echo "WARNING: Health check returned HTTP $HTTP_CODE"
+            exit 1
+          fi
