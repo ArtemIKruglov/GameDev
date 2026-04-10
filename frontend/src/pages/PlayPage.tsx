@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import GamePlayer from "../components/GamePlayer";
 import LoadingScreen from "../components/LoadingScreen";
@@ -47,6 +47,11 @@ export default function PlayPage() {
     }
   }, [id, modification, navigate]);
 
+  // Track page view
+  useEffect(() => {
+    if (id) api.trackEvent("game_view", id);
+  }, [id]);
+
   if (loading) {
     return (
       <div style={styles.page}>
@@ -90,7 +95,7 @@ export default function PlayPage() {
           <p style={styles.prompt}>{game.prompt}</p>
         )}
 
-        <GamePlayer html={html} />
+        <GamePlayer html={html} gameId={id} />
 
         <div style={styles.actions}>
           <button onClick={handleShare} style={styles.actionButton}>

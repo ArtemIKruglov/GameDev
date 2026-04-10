@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
+import { api } from "../api/client";
+
 interface GamePlayerProps {
   html: string;
+  gameId?: string;
   onError?: () => void;
   onLoad?: () => void;
 }
@@ -10,12 +13,32 @@ type PlayerState = "loading" | "playing" | "error";
 
 const ERROR_SCRIPT = `<script>
 window.onerror = function(msg) { parent.postMessage({ type: 'game-error', message: String(msg) }, '*'); };
-setTimeout(() => parent.postMessage({ type: 'game-ok' }, '*'), 2000);
+setTimeout(() => parent.postMessage({ type: 'game-ok' }, '*'), 3000);
+
+// Gameplay tracking — report interactions to parent
+(function() {
+  var clicks = 0, keys = 0, startTime = Date.now();
+  document.addEventListener('click', function() { clicks++; });
+  document.addEventListener('keydown', function() { keys++; });
+  document.addEventListener('touchstart', function() { clicks++; });
+  // Report every 10 seconds
+  setInterval(function() {
+    var secs = Math.round((Date.now() - startTime) / 1000);
+    parent.postMessage({ type: 'game-activity', clicks: clicks, keys: keys, seconds: secs }, '*');
+  }, 10000);
+  // Report on page hide (user leaves)
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      var secs = Math.round((Date.now() - startTime) / 1000);
+      parent.postMessage({ type: 'game-activity', clicks: clicks, keys: keys, seconds: secs }, '*');
+    }
+  });
+})();
 </script>`;
 
-const HEALTH_TIMEOUT_MS = 5000;
+const HEALTH_TIMEOUT_MS = 15000;
 
-export default function GamePlayer({ html, onError, onLoad }: GamePlayerProps) {
+export default function GamePlayer({ html, gameId, onError, onLoad }: GamePlayerProps) {
   const [state, setState] = useState<PlayerState>("loading");
   const [fullscreen, setFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,11 +63,18 @@ export default function GamePlayer({ html, onError, onLoad }: GamePlayerProps) {
       if (data.type === "game-ok") {
         setState("playing");
         onLoad?.();
+        api.trackEvent("game_play", gameId);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else if (data.type === "game-error") {
         setState("error");
         onError?.();
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      } else if (data.type === "game-activity" && gameId) {
+        api.trackEvent(
+          "game_activity",
+          gameId,
+          `clicks=${data.clicks},keys=${data.keys},sec=${data.seconds}`,
+        );
       }
     }
 
