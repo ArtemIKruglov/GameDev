@@ -10,8 +10,12 @@ describe("GamePlayer", () => {
     expect(iframe).toHaveAttribute("sandbox", "allow-scripts");
   });
 
-  it("shows loading state initially", () => {
+  it("renders iframe immediately without loading overlay", () => {
     render(<GamePlayer html="<html><body>test</body></html>" />);
-    expect(screen.getByText(/загружаем игру/i)).toBeInTheDocument();
+    // No loading overlay — iframe renders directly
+    const iframe = screen.getByTitle("Game");
+    expect(iframe).toBeInTheDocument();
+    // Loading text should NOT be present
+    expect(screen.queryByText(/загружаем/i)).not.toBeInTheDocument();
   });
 });
