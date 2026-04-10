@@ -1,0 +1,4 @@
+{
+  "choices": [{"message": {"content": "```html\n<!DOCTYPE html><html><head><title>Cat Game</title></head><body><canvas id='c'></canvas><script>const c=document.getElementById('c');const ctx=c.getContext('2d');c.width=600;c.height=400;let score=0;let x=300;document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')x-=20;if(e.key==='ArrowRight')x+=20;});function draw(){ctx.clearRect(0,0,600,400);ctx.fillStyle='#6c5ce7';ctx.fillRect(x-25,350,50,50);ctx.fillStyle='white';ctx.font='20px sans-serif';ctx.fillText('Score: '+score,10,30);ctx.fillText('Use arrow keys!',200,200);requestAnimationFrame(draw);}draw();</script></body></html>\n```"}}],
+  "usage": {"prompt_tokens": 500, "completion_tokens": 300, "total_tokens": 800}
+}

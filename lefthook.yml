@@ -1,0 +1,21 @@
+pre-commit:
+  parallel: true
+  commands:
+    ruff-check:
+      glob: "backend/**/*.py"
+      run: cd backend && ruff check {staged_files} --fix
+    ruff-format:
+      glob: "backend/**/*.py"
+      run: cd backend && ruff format {staged_files}
+    eslint:
+      glob: "frontend/src/**/*.{ts,tsx}"
+      run: cd frontend && npx eslint {staged_files}
+    typecheck:
+      run: cd frontend && npx tsc --noEmit
+
+pre-push:
+  commands:
+    backend-tests:
+      run: cd backend && python -m pytest --tb=short -q
+    frontend-tests:
+      run: cd frontend && npx vitest run
