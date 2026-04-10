@@ -191,9 +191,7 @@ async def test_refine_game_endpoint(client):
     respx.post(OPENROUTER_URL).mock(return_value=httpx.Response(200, json=fixture))
 
     # Create original game
-    create_resp = await client.post(
-        "/api/games", json={"prompt": "make a fun cat platformer game"}
-    )
+    create_resp = await client.post("/api/games", json={"prompt": "make a fun cat platformer game"})
     original_id = create_resp.json()["id"]
 
     # Refine it
@@ -222,7 +220,9 @@ async def test_refine_nonexistent_game(client):
 @pytest.mark.asyncio
 async def test_error_message_does_not_leak_internals(client):
     """Exception with sensitive info should return generic 503 message, not the raw error."""
-    sensitive_msg = "Connection to https://openrouter.ai/api/v1 failed: API key sk-or-v1-abc123 invalid"
+    sensitive_msg = (
+        "Connection to https://openrouter.ai/api/v1 failed: API key sk-or-v1-abc123 invalid"
+    )
     respx.post(OPENROUTER_URL).mock(side_effect=RuntimeError(sensitive_msg))
 
     response = await client.post(

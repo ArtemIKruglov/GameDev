@@ -24,6 +24,7 @@ async def close_client() -> None:
         await _client.aclose()
         _client = None
 
+
 SYSTEM_PROMPT = """You are a game developer creating fun, safe HTML5 games for children ages 8-14.
 
 OUTPUT FORMAT:
@@ -33,7 +34,7 @@ OUTPUT FORMAT:
 GAME REQUIREMENTS:
 1. Must work IMMEDIATELY when opened — no external dependencies, no CDN links, no images from URLs.
 2. Use Canvas 2D API or DOM manipulation with CSS shapes/emoji for graphics.
-3. Must include: clear on-screen instructions, visible score/progress, restart button, win/lose condition.
+3. Must include: clear instructions, visible score/progress, restart button, win/lose condition.
 4. Support BOTH keyboard (arrow keys/WASD/space) AND mouse/touch click controls.
 5. Must be responsive — use percentage-based sizing or viewport units.
 6. Keep total code under 15,000 characters.
@@ -56,8 +57,8 @@ SAFETY — STRICTLY FORBIDDEN:
 Make the game FUN. Simple to learn, satisfying to play, with a clear feedback loop."""
 
 MODELS = [
+    "z-ai/glm-5.1",
     "google/gemini-2.5-flash",
-    "google/gemini-2.5-pro",
     "deepseek/deepseek-chat-v3-0324",
 ]
 
@@ -106,7 +107,10 @@ def validate_game_html(html: str) -> tuple[bool, str]:
     html_lower = html.lower()
     has_signal = any(sig in html_lower for sig in game_signals)
     if not has_signal:
-        return False, "Game HTML lacks interactivity signals (no event listeners, canvas, or animation)"
+        return (
+            False,
+            "Game HTML lacks interactivity signals (no event listeners, canvas, or animation)",
+        )
 
     return True, "ok"
 
@@ -119,7 +123,12 @@ async def generate_game(prompt: str, model: str | None = None) -> dict:
     for current_model in models_to_try:
         try:
             result = await _call_openrouter(prompt, current_model)
-            logger.info("Generation succeeded: model=%s, time=%dms, tokens=%d", current_model, result["time_ms"], result["tokens"])
+            logger.info(
+                "Generation succeeded: model=%s, time=%dms, tokens=%d",
+                current_model,
+                result["time_ms"],
+                result["tokens"],
+            )
             return result
         except Exception as e:
             logger.warning("Model %s failed: %s", current_model, e)

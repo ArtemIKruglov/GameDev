@@ -13,6 +13,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # --- Content filter: leetspeak bypass ---
 
+
 def test_filter_leetspeak_bypass():
     """Leetspeak variants should be caught."""
     is_safe, _ = filter_input("make a game about k1ll1ng")
@@ -21,6 +22,7 @@ def test_filter_leetspeak_bypass():
 
 # --- Content filter: whitespace bypass ---
 
+
 def test_filter_whitespace_bypass():
     """Spaced-out words should be caught."""
     is_safe, _ = filter_input("a game about m u r d e r")
@@ -28,6 +30,7 @@ def test_filter_whitespace_bypass():
 
 
 # --- Content filter: false-positive allowlist ---
+
 
 def test_filter_false_positive_allowlist():
     """Safe game phrases should NOT be blocked."""
@@ -44,6 +47,7 @@ def test_filter_false_positive_allowlist():
 
 # --- Content filter: prompt injection ---
 
+
 def test_filter_prompt_injection():
     """Prompt injection attempts should be caught."""
     injections = [
@@ -57,6 +61,7 @@ def test_filter_prompt_injection():
 
 
 # --- Content filter: PII detection ---
+
 
 def test_filter_pii_email():
     """Email addresses in prompts should be caught."""
@@ -93,6 +98,7 @@ def test_filter_pii_no_false_positive():
 
 # --- Session cookie signing ---
 
+
 @pytest.mark.asyncio
 async def test_session_cookie_is_signed(client):
     """Session cookie should be cryptographically signed."""
@@ -104,6 +110,7 @@ async def test_session_cookie_is_signed(client):
 
 
 # --- CSP headers ---
+
 
 @respx.mock
 @pytest.mark.asyncio

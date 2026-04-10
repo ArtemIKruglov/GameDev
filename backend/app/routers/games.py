@@ -73,7 +73,11 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
         for attempt in range(max_attempts):
             prompt_text = body.prompt
             if attempt > 0:
-                prompt_text = f"{body.prompt}\n\nIMPORTANT: Generate a working, complete HTML game. Ensure all JavaScript is correct."
+                retry_suffix = (
+                    "\n\nIMPORTANT: Generate a working, complete HTML game."
+                    " Ensure all JavaScript is correct."
+                )
+                prompt_text = f"{body.prompt}{retry_suffix}"
                 logger.info("Game %s: retry attempt %d", game_id, attempt + 1)
 
             result = await generate_game(prompt_text)
@@ -81,25 +85,41 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
             # Filter output
             output_safe, output_reason = filter_output(result["html"])
             if not output_safe:
-                logger.warning("Game %s: output filter failed (attempt %d): %s", game_id, attempt + 1, output_reason)
+                logger.warning(
+                    "Game %s: output filter failed (attempt %d): %s",
+                    game_id,
+                    attempt + 1,
+                    output_reason,
+                )
                 if attempt < max_attempts - 1:
                     continue
                 await update_game(game_id, status="failed", error_message=output_reason)
                 raise HTTPException(
                     status_code=400,
-                    detail={"error": "content_filtered", "message": f"Generated game failed safety check: {output_reason}"},
+                    detail={
+                        "error": "content_filtered",
+                        "message": f"Generated game failed safety check: {output_reason}",
+                    },
                 )
 
             # Validate quality
             is_valid, validation_msg = validate_game_html(result["html"])
             if not is_valid:
-                logger.warning("Game %s: validation failed (attempt %d): %s", game_id, attempt + 1, validation_msg)
+                logger.warning(
+                    "Game %s: validation failed (attempt %d): %s",
+                    game_id,
+                    attempt + 1,
+                    validation_msg,
+                )
                 if attempt < max_attempts - 1:
                     continue
                 await update_game(game_id, status="failed", error_message=validation_msg)
                 raise HTTPException(
                     status_code=503,
-                    detail={"error": "generation_failed", "message": "Game creation failed. Please try again!"},
+                    detail={
+                        "error": "generation_failed",
+                        "message": "Game creation failed. Please try again!",
+                    },
                 )
 
             # Success
@@ -116,7 +136,13 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
 
         # Record rate usage only after successful generation
         await record_rate_usage(session_id)
-        logger.info("Game %s completed: model=%s, time=%dms, tokens=%d", game_id, result["model"], result["time_ms"], result["tokens"])
+        logger.info(
+            "Game %s completed: model=%s, time=%dms, tokens=%d",
+            game_id,
+            result["model"],
+            result["time_ms"],
+            result["tokens"],
+        )
 
     except HTTPException:
         raise
@@ -125,7 +151,10 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
         await update_game(game_id, status="failed", error_message=str(e))
         raise HTTPException(
             status_code=503,
-            detail={"error": "generation_failed", "message": "Game creation failed. Please try again!"},
+            detail={
+                "error": "generation_failed",
+                "message": "Game creation failed. Please try again!",
+            },
         )
 
     return _game_to_response(game)
@@ -215,7 +244,10 @@ async def refine_game_endpoint(game_id: str, body: GameRefineRequest, request: R
     if not original.get("html_content"):
         raise HTTPException(
             status_code=400,
-            detail={"error": "generation_failed", "message": "Original game has no content to refine"},
+            detail={
+                "error": "generation_failed",
+                "message": "Original game has no content to refine",
+            },
         )
 
     # Rate limit
@@ -272,7 +304,10 @@ async def refine_game_endpoint(game_id: str, body: GameRefineRequest, request: R
             await update_game(new_game_id, status="failed", error_message=validation_msg)
             raise HTTPException(
                 status_code=503,
-                detail={"error": "generation_failed", "message": "The refined game didn't come out right. Try again!"},
+                detail={
+                    "error": "generation_failed",
+                    "message": "The refined game didn't come out right. Try again!",
+                },
             )
 
         game = await update_game(
@@ -292,7 +327,10 @@ async def refine_game_endpoint(game_id: str, body: GameRefineRequest, request: R
         await update_game(new_game_id, status="failed", error_message=str(e))
         raise HTTPException(
             status_code=503,
-            detail={"error": "generation_failed", "message": "Refinement failed. Please try again!"},
+            detail={
+                "error": "generation_failed",
+                "message": "Refinement failed. Please try again!",
+            },
         )
 
     return _game_to_response(game)

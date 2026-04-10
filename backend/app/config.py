@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     @classmethod
     def openrouter_key_must_not_be_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("OPENROUTER_API_KEY must be set — the app cannot generate games without it")
+            raise ValueError(
+                "OPENROUTER_API_KEY must be set — the app cannot generate games without it"
+            )
         return v
 
 

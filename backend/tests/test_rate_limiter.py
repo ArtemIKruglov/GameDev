@@ -22,7 +22,7 @@ async def test_rate_limit_blocks_after_limit():
         session = "test-session-rl-block"
         for i in range(10):
             allowed, _ = await check_rate_limit(session)
-            assert allowed is True, f"Request {i+1} should be allowed"
+            assert allowed is True, f"Request {i + 1} should be allowed"
             await record_rate_usage(session)
 
         # 11th request should be blocked
@@ -43,7 +43,7 @@ async def test_rate_limit_not_charged_on_failure():
         # Check 20 times without recording — should always be allowed
         for i in range(20):
             allowed, _ = await check_rate_limit(session)
-            assert allowed is True, f"Check-only request {i+1} should be allowed"
+            assert allowed is True, f"Check-only request {i + 1} should be allowed"
 
         # Now record once and verify we still have quota
         await record_rate_usage(session)

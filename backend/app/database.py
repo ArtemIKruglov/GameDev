@@ -199,7 +199,8 @@ async def increment_rate_count(session_id: str, window_start: str) -> int:
         await db.execute(
             """INSERT INTO rate_limits (session_id, window_start, request_count)
                VALUES (?, ?, 1)
-               ON CONFLICT (session_id, window_start) DO UPDATE SET request_count = request_count + 1""",
+               ON CONFLICT (session_id, window_start)
+               DO UPDATE SET request_count = request_count + 1""",
             (session_id, window_start),
         )
         await db.commit()
@@ -219,7 +220,8 @@ async def increment_rate_counts_atomic(session_id: str, windows: list[str]) -> N
             await db.execute(
                 """INSERT INTO rate_limits (session_id, window_start, request_count)
                    VALUES (?, ?, 1)
-                   ON CONFLICT (session_id, window_start) DO UPDATE SET request_count = request_count + 1""",
+                   ON CONFLICT (session_id, window_start)
+               DO UPDATE SET request_count = request_count + 1""",
                 (session_id, window_start),
             )
         await db.commit()

@@ -105,9 +105,7 @@ async def test_cleanup_expired_games():
 
         # Manually set created_at to 31 days ago
         db = await database.get_db()
-        old_date = (datetime.now(UTC) - timedelta(days=31)).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
+        old_date = (datetime.now(UTC) - timedelta(days=31)).strftime("%Y-%m-%dT%H:%M:%S")
         await db.execute(
             "UPDATE games SET created_at = ? WHERE id = ?",
             (old_date, "cleanup-test-1"),

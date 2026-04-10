@@ -5,7 +5,10 @@ from app.database import get_rate_count, increment_rate_counts_atomic
 
 
 async def check_rate_limit(session_id: str) -> tuple[bool, int]:
-    """Check if session is within rate limits (read-only). Returns (is_allowed, retry_after_seconds)."""
+    """Check if session is within rate limits (read-only).
+
+    Returns (is_allowed, retry_after_seconds).
+    """
     now = datetime.now(UTC)
 
     # Hourly window
@@ -26,7 +29,10 @@ async def check_rate_limit(session_id: str) -> tuple[bool, int]:
 
 
 async def record_rate_usage(session_id: str) -> None:
-    """Atomically increment rate limit counters for both windows. Call only after successful generation."""
+    """Atomically increment rate limit counters for both windows.
+
+    Call only after successful generation.
+    """
     now = datetime.now(UTC)
     hour_window = now.strftime("%Y-%m-%dT%H:00:00")
     day_window = now.strftime("%Y-%m-%d")

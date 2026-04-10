@@ -6,22 +6,51 @@ profanity.load_censor_words()
 
 # Phrases that are safe despite containing blocked substrings
 SAFE_PHRASES = [
-    "shoot baskets", "shoot hoops", "basketball shoot",
-    "killer whale", "lady killer",
-    "die roll", "dice", "roll the die",
-    "hit the target", "hit the ball",
-    "gun it", "water gun", "nerf gun", "laser gun",
+    "shoot baskets",
+    "shoot hoops",
+    "basketball shoot",
+    "killer whale",
+    "lady killer",
+    "die roll",
+    "dice",
+    "roll the die",
+    "hit the target",
+    "hit the ball",
+    "gun it",
+    "water gun",
+    "nerf gun",
+    "laser gun",
     "bomb the test",
 ]
 
 BLOCKED_INPUT_KEYWORDS = [
-    "kill", "murder", "blood", "gore", "horror",
-    "sex", "nude", "naked", "porn", "hentai",
-    "drug", "cocaine", "heroin", "meth",
-    "alcohol", "beer", "wine", "vodka", "whiskey",
-    "gambling", "casino", "betting",
-    "suicide", "self-harm",
-    "terrorist", "racist", "nazi",
+    "kill",
+    "murder",
+    "blood",
+    "gore",
+    "horror",
+    "sex",
+    "nude",
+    "naked",
+    "porn",
+    "hentai",
+    "drug",
+    "cocaine",
+    "heroin",
+    "meth",
+    "alcohol",
+    "beer",
+    "wine",
+    "vodka",
+    "whiskey",
+    "gambling",
+    "casino",
+    "betting",
+    "suicide",
+    "self-harm",
+    "terrorist",
+    "racist",
+    "nazi",
 ]
 
 PROMPT_INJECTION_PATTERNS = [
@@ -36,7 +65,8 @@ PROMPT_INJECTION_PATTERNS = [
 PII_PATTERNS = [
     r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",  # email
     r"(?<!\d)(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{2,4}(?!\d)",  # phone
-    r"\d{1,5}\s+\w+\s+(?:st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court)\b",  # address
+    r"\d{1,5}\s+\w+\s+(?:st|street|ave|avenue|blvd|boulevard"
+    r"|rd|road|dr|drive|ln|lane|ct|court)\b",  # address
 ]
 
 PII_MESSAGE = (
@@ -72,9 +102,9 @@ def _normalize(text: str) -> str:
     """Normalize text for keyword matching: lowercase, strip whitespace tricks, de-leetspeak."""
     text = text.lower()
     # Remove spaces between single chars: "k i l l" -> "kill"
-    text = re.sub(r'(?<=\b\w)\s+(?=\w\b)', '', text)
+    text = re.sub(r"(?<=\b\w)\s+(?=\w\b)", "", text)
     # Also handle "k.i.l.l" or "k-i-l-l"
-    text = re.sub(r'(?<=\w)[.\-_]+(?=\w)', '', text)
+    text = re.sub(r"(?<=\w)[.\-_]+(?=\w)", "", text)
     # Leetspeak substitution
     text = text.translate(LEETSPEAK_MAP)
     return text
