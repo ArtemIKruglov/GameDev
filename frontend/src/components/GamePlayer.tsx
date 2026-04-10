@@ -66,8 +66,15 @@ export default function GamePlayer({ html, gameId, onError, onLoad }: GamePlayer
         api.trackEvent("game_play", gameId);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else if (data.type === "game-error") {
-        setState("error");
-        onError?.();
+        // Only show error if game hasn't loaded yet.
+        // Once playing, ignore non-critical JS errors (common in generated games)
+        setState((prev) => {
+          if (prev === "loading") {
+            onError?.();
+            return "error";
+          }
+          return prev; // keep "playing" — don't kill a working game
+        });
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else if (data.type === "game-activity" && gameId) {
         api.trackEvent(
