@@ -87,10 +87,9 @@ FORBIDDEN_OUTPUT_PATTERNS = [
     (r"\bsessionStorage\b", "sessionStorage"),
     (r"\bdocument\.cookie\b", "document.cookie"),
     (r"\beval\s*\(", "eval() call"),
-    (r"\bFunction\s*\(", "Function() constructor"),
+    # Function() removed — safe in sandboxed iframe, GLM-5.1 uses it legitimately
     (r"<iframe", "iframe tag"),
     (r"<form[^>]+action\s*=", "form action"),
-    (r"\bnew\s+Function\s*\(", "new Function() constructor"),
     (r"\bimport\s*\(", "dynamic import"),
     (r"\bwindow\.open\s*\(", "window.open() call"),
     (r"javascript\s*:", "javascript: URI"),
@@ -146,8 +145,16 @@ def filter_output(html: str) -> tuple[bool, str]:
         if re.search(pattern, html, re.IGNORECASE):
             return False, f"Generated HTML contains forbidden pattern: {description}"
 
-    # Strip HTML tags and check visible text for profanity
-    visible_text = re.sub(r"<[^>]+>", " ", html)
+    # Strip script blocks first (JS var names trigger false positives)
+    text_no_scripts = re.sub(
+        r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE
+    )
+    # Strip style blocks
+    text_no_styles = re.sub(
+        r"<style[^>]*>.*?</style>", " ", text_no_scripts, flags=re.DOTALL | re.IGNORECASE
+    )
+    # Strip remaining HTML tags to get visible text only
+    visible_text = re.sub(r"<[^>]+>", " ", text_no_styles)
     if profanity.contains_profanity(visible_text):
         return False, "Generated HTML contains inappropriate language"
 

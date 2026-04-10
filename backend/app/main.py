@@ -30,10 +30,30 @@ async def _periodic_cleanup():
             logger.exception("Cleanup failed")
 
 
+async def _recover_pending_games():
+    """On startup, retry any games stuck in 'pending' from a previous crash."""
+    from app.database import get_db
+    from app.routers.games import _generate_in_background
+
+    db = await get_db()
+    cur = await db.execute("SELECT id, prompt, session_id FROM games WHERE status = 'pending'")
+    pending = await cur.fetchall()
+    if not pending:
+        return
+
+    logger.info("Recovering %d pending games from previous run", len(pending))
+    for row in pending:
+        game = dict(row)
+        asyncio.create_task(
+            _generate_in_background(game["id"], game["prompt"], game["session_id"] or "recovered")
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await get_db()
     cleanup_task = asyncio.create_task(_periodic_cleanup())
+    await _recover_pending_games()
     yield
     cleanup_task.cancel()
     await close_client()

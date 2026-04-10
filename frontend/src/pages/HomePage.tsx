@@ -3,7 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import PromptInput from "../components/PromptInput";
 import LoadingScreen from "../components/LoadingScreen";
 import ErrorMessage from "../components/ErrorMessage";
+import GameCard from "../components/GameCard";
 import { useCreateGame } from "../hooks/useCreateGame";
+import { useGames } from "../hooks/useGames";
 import { api } from "../api/client";
 
 const EXAMPLES = [
@@ -22,6 +24,7 @@ export default function HomePage() {
   const { createGame, error, loading, lastPrompt, reset } = useCreateGame();
   const [view, setView] = useState<View>("input");
   const [promptForInput, setPromptForInput] = useState("");
+  const { games: recentGames } = useGames(6);
 
   useEffect(() => {
     api.trackEvent("page_view", undefined, "home");
@@ -110,6 +113,22 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      {recentGames.length > 0 && (
+        <section style={styles.recentSection}>
+          <h3 style={styles.recentTitle}>
+            Свежие игры от других ребят 🕹️
+          </h3>
+          <div style={styles.recentGrid}>
+            {recentGames.map((game) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+          <Link to="/gallery" style={styles.seeAllLink}>
+            Все игры →
+          </Link>
+        </section>
+      )}
 
       <footer style={styles.footer}>
         <p>Сделано для тех, кто мечтает по-крупному ✨</p>
@@ -208,6 +227,35 @@ const styles = {
     transition: "border-color 0.2s, transform 0.15s",
     cursor: "pointer",
     minHeight: 48,
+  } as React.CSSProperties,
+
+  recentSection: {
+    width: "100%",
+    maxWidth: 900,
+    margin: "0 auto",
+    padding: "2rem 1rem",
+  } as React.CSSProperties,
+
+  recentTitle: {
+    fontSize: "1.3rem",
+    fontWeight: 700,
+    textAlign: "center" as const,
+    marginBottom: 20,
+  } as React.CSSProperties,
+
+  recentGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    gap: 16,
+  } as React.CSSProperties,
+
+  seeAllLink: {
+    display: "block",
+    textAlign: "center" as const,
+    marginTop: 20,
+    color: "var(--color-primary)",
+    fontSize: "1rem",
+    fontWeight: 600,
   } as React.CSSProperties,
 
   footer: {
