@@ -123,13 +123,6 @@ export default function GamePlayer({ html, gameId, onError, onLoad }: GamePlayer
 
   return (
     <div ref={containerRef} style={styles.container}>
-      {state === "loading" && (
-        <div style={styles.overlay}>
-          <div style={styles.spinner} />
-          <p>Загружаем игру... 🎮</p>
-        </div>
-      )}
-
       {state === "error" && (
         <div style={styles.overlay}>
           <p style={styles.errorText}>
@@ -142,10 +135,7 @@ export default function GamePlayer({ html, gameId, onError, onLoad }: GamePlayer
         srcDoc={injectedHtml}
         sandbox="allow-scripts"
         title="Game"
-        style={{
-          ...styles.iframe,
-          opacity: state === "playing" ? 1 : 0.15,
-        }}
+        style={styles.iframe}
       />
 
       <button
