@@ -128,11 +128,10 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
@@ -145,10 +144,11 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         run: |
-          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no yc-user@$VM_HOST"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no yc-user@$VM_HOST"
+          SCP="scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
 
-          # 1. Sync project files to VM
-          rsync -azP --delete \
+          # 1. Sync project files
+          rsync -az --delete \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='__pycache__' \
@@ -160,8 +160,8 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             ./ "yc-user@$VM_HOST:~/app/"
 
-          # 2. Write production .env
-          $SSH_CMD bash -c "cat > ~/app/.env << 'ENVEOF'
+          # 2. Write .env (no leading spaces)
+          cat > /tmp/.env.prod <<EOF
           OPENROUTER_API_KEY=$OPENROUTER_API_KEY
           DATABASE_PATH=/app/data/games.db
           ENVIRONMENT=production
@@ -169,25 +169,20 @@ jobs:
           RATE_LIMIT_PER_HOUR=10
           RATE_LIMIT_PER_DAY=30
           SESSION_SECRET=$SESSION_SECRET
-          ENVEOF"
+          EOF
+          sed -i 's/^          //' /tmp/.env.prod
+          $SCP /tmp/.env.prod "yc-user@$VM_HOST:~/app/.env"
 
-          # 3. Build and restart with zero-downtime
-          $SSH_CMD bash -c "
-            cd ~/app
-            sudo docker compose -f docker-compose.prod.yml build
-            sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            sleep 10
-            # Health check
-            curl -sf http://localhost/api/health || echo 'WARNING: health check failed'
-          "
+          # 3. Build and restart
+          $SSH "cd ~/app && sudo docker compose -f docker-compose.prod.yml up -d --build --remove-orphans"
 
       - name: Verify deployment
         run: |
-          sleep 5
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.VM_HOST }}/api/health" || echo "000")
+          sleep 15
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://${{ secrets.VM_HOST }}/api/health" || echo "000")
           if [ "$HTTP_CODE" = "200" ]; then
             echo "Deployment verified: HTTP $HTTP_CODE"
           else
-            echo "WARNING: Health check returned HTTP $HTTP_CODE"
+            echo "Health check returned HTTP $HTTP_CODE"
             exit 1
           fi
