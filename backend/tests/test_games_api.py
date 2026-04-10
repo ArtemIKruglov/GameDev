@@ -206,9 +206,7 @@ async def test_refine_game_endpoint(client):
     respx.post(OPENROUTER_URL).mock(return_value=httpx.Response(200, json=fixture))
 
     # Create original game and wait for it
-    create_resp = await client.post(
-        "/api/games", json={"prompt": "make a fun cat platformer game"}
-    )
+    create_resp = await client.post("/api/games", json={"prompt": "make a fun cat platformer game"})
     original_id = create_resp.json()["id"]
     await asyncio.sleep(0.5)
 
@@ -245,9 +243,7 @@ async def test_error_message_does_not_leak_internals(client):
     """Exception in background should set game status to failed, not leak error details."""
     import asyncio
 
-    sensitive_msg = (
-        "Connection to openrouter.ai failed: API key sk-or-v1-abc123 invalid"
-    )
+    sensitive_msg = "Connection to openrouter.ai failed: API key sk-or-v1-abc123 invalid"
     respx.post(OPENROUTER_URL).mock(side_effect=RuntimeError(sensitive_msg))
 
     response = await client.post(

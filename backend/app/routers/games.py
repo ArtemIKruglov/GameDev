@@ -3,7 +3,14 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from app.database import create_game, flag_game, get_game, list_games, update_game
+from app.database import (
+    create_game,
+    flag_game,
+    get_game,
+    list_games,
+    track_event,
+    update_game,
+)
 from app.models import (
     ErrorResponse,
     GameCreateRequest,
@@ -71,15 +78,14 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
     import asyncio
 
     asyncio.create_task(_generate_in_background(game_id, body.prompt, session_id))
+    await track_event("game_create", session_id, game_id)
 
     # Return pending game immediately — frontend will poll
     game = await get_game(game_id)
     return _game_to_response(game)
 
 
-async def _generate_in_background(
-    game_id: str, prompt: str, session_id: str
-) -> None:
+async def _generate_in_background(game_id: str, prompt: str, session_id: str) -> None:
     """Background task: generate game via AI, update DB when done."""
     try:
         max_attempts = 2
@@ -122,6 +128,7 @@ async def _generate_in_background(
                 token_count=result["tokens"],
             )
             await record_rate_usage(session_id)
+            await track_event("game_ready", session_id, game_id, result["model"])
             logger.info(
                 "Game %s ready: model=%s, time=%dms",
                 game_id,
@@ -132,6 +139,7 @@ async def _generate_in_background(
     except Exception as e:
         logger.exception("Background generation failed for %s", game_id)
         await update_game(game_id, status="failed", error_message=str(e))
+        await track_event("game_failed", session_id, game_id)
 
 
 @router.get("/games", response_model=GameListResponse)
@@ -265,9 +273,7 @@ async def refine_game_endpoint(game_id: str, body: GameRefineRequest, request: R
 
     import asyncio
 
-    asyncio.create_task(
-        _generate_in_background(new_game_id, refine_prompt, session_id)
-    )
+    asyncio.create_task(_generate_in_background(new_game_id, refine_prompt, session_id))
 
     game = await get_game(new_game_id)
     return _game_to_response(game)

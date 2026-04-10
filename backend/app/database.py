@@ -7,7 +7,15 @@ import aiosqlite
 from app.config import settings
 
 _db: aiosqlite.Connection | None = None
-_write_lock = asyncio.Lock()
+_write_lock: asyncio.Lock | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    global _write_lock
+    if _write_lock is None:
+        _write_lock = asyncio.Lock()
+    return _write_lock
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS games (
@@ -28,6 +36,19 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_games_session_id ON games(session_id);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
+
+CREATE TABLE IF NOT EXISTS events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    event      TEXT NOT NULL,
+    session_id TEXT,
+    game_id    TEXT,
+    meta       TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_event ON events(event);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 
 CREATE TABLE IF NOT EXISTS rate_limits (
     session_id    TEXT NOT NULL,
@@ -53,10 +74,11 @@ async def get_db() -> aiosqlite.Connection:
 
 
 async def close_db() -> None:
-    global _db
+    global _db, _write_lock
     if _db is not None:
         await _db.close()
         _db = None
+    _write_lock = None
 
 
 # --- Game CRUD ---
@@ -69,7 +91,7 @@ async def create_game(
     parent_game_id: str | None = None,
 ) -> dict:
     db = await get_db()
-    async with _write_lock:
+    async with _get_lock():
         await db.execute(
             """INSERT INTO games (id, prompt, session_id, parent_game_id, status)
                VALUES (?, ?, ?, ?, 'pending')""",
@@ -106,7 +128,7 @@ async def update_game(
     if not updates:
         return await get_game(game_id)
     values.append(game_id)
-    async with _write_lock:
+    async with _get_lock():
         await db.execute(
             f"UPDATE games SET {', '.join(updates)} WHERE id = ?",
             values,
@@ -158,7 +180,7 @@ async def list_games(
 
 async def flag_game(game_id: str) -> bool:
     db = await get_db()
-    async with _write_lock:
+    async with _get_lock():
         await db.execute(
             "UPDATE games SET status = 'flagged', is_public = 0 WHERE id = ?",
             (game_id,),
@@ -171,7 +193,7 @@ async def cleanup_expired_games(days: int = 30) -> int:
     """Delete games older than N days. Returns count of deleted games."""
     db = await get_db()
     cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
-    async with _write_lock:
+    async with _get_lock():
         cursor = await db.execute(
             "DELETE FROM games WHERE created_at < ? AND status != 'flagged'",
             (cutoff,),
@@ -195,7 +217,7 @@ async def get_rate_count(session_id: str, window_start: str) -> int:
 
 async def increment_rate_count(session_id: str, window_start: str) -> int:
     db = await get_db()
-    async with _write_lock:
+    async with _get_lock():
         await db.execute(
             """INSERT INTO rate_limits (session_id, window_start, request_count)
                VALUES (?, ?, 1)
@@ -215,7 +237,7 @@ async def increment_rate_count(session_id: str, window_start: str) -> int:
 async def increment_rate_counts_atomic(session_id: str, windows: list[str]) -> None:
     """Atomically increment rate counters for multiple windows in a single transaction."""
     db = await get_db()
-    async with _write_lock:
+    async with _get_lock():
         for window_start in windows:
             await db.execute(
                 """INSERT INTO rate_limits (session_id, window_start, request_count)
@@ -225,3 +247,120 @@ async def increment_rate_counts_atomic(session_id: str, windows: list[str]) -> N
                 (session_id, window_start),
             )
         await db.commit()
+
+
+# --- Analytics ---
+
+
+async def track_event(
+    event: str,
+    session_id: str | None = None,
+    game_id: str | None = None,
+    meta: str | None = None,
+) -> None:
+    """Track an analytics event. Never raises — analytics must not break the app."""
+    try:
+        db = await get_db()
+        async with _get_lock():
+            await db.execute(
+                "INSERT INTO events (event, session_id, game_id, meta) VALUES (?, ?, ?, ?)",
+                (event, session_id, game_id, meta),
+            )
+            await db.commit()
+    except Exception:
+        pass  # Analytics should never break the main flow
+        await db.commit()
+
+
+async def get_analytics() -> dict:
+    """Get analytics summary."""
+    db = await get_db()
+
+    result: dict = {}
+
+    # Total games
+    cur = await db.execute("SELECT COUNT(*) FROM games")
+    result["total_games"] = (await cur.fetchone())[0]
+
+    # Games by status
+    cur = await db.execute("SELECT status, COUNT(*) as cnt FROM games GROUP BY status")
+    result["games_by_status"] = {r["status"]: r["cnt"] for r in await cur.fetchall()}
+
+    # Unique sessions
+    cur = await db.execute(
+        "SELECT COUNT(DISTINCT session_id) FROM games WHERE session_id IS NOT NULL"
+    )
+    result["unique_users"] = (await cur.fetchone())[0]
+
+    # Returning users (sessions with >1 game)
+    cur = await db.execute(
+        "SELECT COUNT(*) FROM ("
+        "  SELECT session_id FROM games"
+        "  WHERE session_id IS NOT NULL"
+        "  GROUP BY session_id HAVING COUNT(*) > 1"
+        ")"
+    )
+    result["returning_users"] = (await cur.fetchone())[0]
+
+    # Games today
+    cur = await db.execute("SELECT COUNT(*) FROM games WHERE created_at >= date('now')")
+    result["games_today"] = (await cur.fetchone())[0]
+
+    # Games this week
+    cur = await db.execute("SELECT COUNT(*) FROM games WHERE created_at >= date('now', '-7 days')")
+    result["games_this_week"] = (await cur.fetchone())[0]
+
+    # Avg generation time (ready games only)
+    cur = await db.execute(
+        "SELECT AVG(generation_time_ms), MIN(generation_time_ms), "
+        "MAX(generation_time_ms) FROM games WHERE status = 'ready'"
+    )
+    row = await cur.fetchone()
+    result["generation_time"] = {
+        "avg_ms": round(row[0]) if row[0] else 0,
+        "min_ms": row[1] or 0,
+        "max_ms": row[2] or 0,
+    }
+
+    # Total tokens used
+    cur = await db.execute("SELECT SUM(token_count) FROM games WHERE token_count IS NOT NULL")
+    result["total_tokens"] = (await cur.fetchone())[0] or 0
+
+    # Success rate
+    cur = await db.execute("SELECT COUNT(*) FROM games WHERE status = 'ready'")
+    ready = (await cur.fetchone())[0]
+    cur = await db.execute("SELECT COUNT(*) FROM games WHERE status IN ('ready', 'failed')")
+    total_finished = (await cur.fetchone())[0]
+    result["success_rate"] = round(ready / total_finished * 100, 1) if total_finished > 0 else 0
+
+    # Models used
+    cur = await db.execute(
+        "SELECT model_used, COUNT(*) as cnt FROM games "
+        "WHERE model_used IS NOT NULL GROUP BY model_used "
+        "ORDER BY cnt DESC"
+    )
+    result["models"] = {r["model_used"]: r["cnt"] for r in await cur.fetchall()}
+
+    # Refinements count
+    cur = await db.execute("SELECT COUNT(*) FROM games WHERE parent_game_id IS NOT NULL")
+    result["refinements"] = (await cur.fetchone())[0]
+
+    # Shares (from events)
+    cur = await db.execute("SELECT COUNT(*) FROM events WHERE event = 'share'")
+    result["shares"] = (await cur.fetchone())[0]
+
+    # Page views (from events)
+    cur = await db.execute(
+        "SELECT event, COUNT(*) as cnt FROM events GROUP BY event ORDER BY cnt DESC"
+    )
+    result["events"] = {r["event"]: r["cnt"] for r in await cur.fetchall()}
+
+    # Daily games (last 7 days)
+    cur = await db.execute(
+        "SELECT date(created_at) as day, COUNT(*) as cnt "
+        "FROM games WHERE created_at >= date('now', '-7 days') "
+        "GROUP BY day ORDER BY day"
+    )
+    result["daily_games"] = [{"date": r["day"], "count": r["cnt"]} for r in await cur.fetchall()]
+
+    return result

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import close_db, get_db
 from app.middleware.session import SessionMiddleware
-from app.routers import games, health
+from app.routers import analytics, games, health
 from app.services.game_generator import close_client
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ app.add_middleware(SessionMiddleware)
 
 app.include_router(health.router, prefix="/api")
 app.include_router(games.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 # Serve static frontend files if they exist (production mode)
 static_dir = Path(__file__).parent.parent / "static"

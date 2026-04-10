@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import PromptInput from "../components/PromptInput";
 import LoadingScreen from "../components/LoadingScreen";
 import ErrorMessage from "../components/ErrorMessage";
 import { useCreateGame } from "../hooks/useCreateGame";
+import { api } from "../api/client";
 
 const EXAMPLES = [
   "Котик прыгает по крышам и собирает звёздочки 🐱⭐",
@@ -21,6 +22,10 @@ export default function HomePage() {
   const { createGame, error, loading, lastPrompt, reset } = useCreateGame();
   const [view, setView] = useState<View>("input");
   const [promptForInput, setPromptForInput] = useState("");
+
+  useEffect(() => {
+    api.trackEvent("page_view", undefined, "home");
+  }, []);
 
   const handleSubmit = useCallback(
     async (prompt: string) => {

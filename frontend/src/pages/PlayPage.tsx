@@ -21,11 +21,12 @@ export default function PlayPage() {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
+      api.trackEvent("share", id);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback: select text
     }
-  }, []);
+  }, [id]);
 
   const handleRefine = useCallback(async () => {
     if (!id || !modification.trim()) return;

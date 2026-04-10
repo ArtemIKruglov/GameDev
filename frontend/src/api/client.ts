@@ -88,6 +88,16 @@ export const api = {
       body: JSON.stringify({ modification }),
     });
   },
+
+  trackEvent(event: string, gameId?: string, meta?: string): void {
+    // Fire-and-forget analytics — never block UI
+    fetch(`${API_BASE}/analytics/event`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, game_id: gameId, meta }),
+    }).catch(() => {}); // silently ignore errors
+  },
 };
 
 export { ApiError };
