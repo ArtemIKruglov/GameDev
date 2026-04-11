@@ -12,8 +12,9 @@ interface GamePlayerProps {
 type PlayerState = "loading" | "playing" | "error";
 
 const ERROR_SCRIPT = `<script>
-window.onerror = function(msg) { parent.postMessage({ type: 'game-error', message: String(msg) }, '*'); };
-setTimeout(() => parent.postMessage({ type: 'game-ok' }, '*'), 3000);
+// Don't report errors — most are non-critical and kill working games.
+// Only report success after 1 second of running.
+setTimeout(() => parent.postMessage({ type: 'game-ok' }, '*'), 1000);
 
 // Gameplay tracking — report interactions to parent
 (function() {
@@ -64,17 +65,6 @@ export default function GamePlayer({ html, gameId, onError, onLoad }: GamePlayer
         setState("playing");
         onLoad?.();
         api.trackEvent("game_play", gameId);
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      } else if (data.type === "game-error") {
-        // Only show error if game hasn't loaded yet.
-        // Once playing, ignore non-critical JS errors (common in generated games)
-        setState((prev) => {
-          if (prev === "loading") {
-            onError?.();
-            return "error";
-          }
-          return prev; // keep "playing" — don't kill a working game
-        });
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else if (data.type === "game-activity" && gameId) {
         api.trackEvent(
