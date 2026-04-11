@@ -79,7 +79,7 @@ export default function HomePage() {
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <h1 style={styles.logo}>GameSpark</h1>
+        <h1 style={styles.logo}>Играйка</h1>
         <nav style={styles.nav}>
           <Link to="/gallery" style={styles.navLink}>Галерея</Link>
           <Link to="/privacy" style={styles.navLink}>Приватность</Link>
@@ -87,9 +87,9 @@ export default function HomePage() {
       </header>
 
       <main style={styles.main}>
-        <h2 style={styles.heading}>Какую игру ты хочешь создать? 🎮</h2>
+        <h2 style={styles.heading}>Придумай игру — и вжух! 🎮</h2>
         <p style={styles.subheading}>
-          Опиши свою мечту — а ИИ соберёт её за минуту!
+          Напиши, во что хочешь поиграть, а Играйка создаст игру для тебя
         </p>
 
         <PromptInput

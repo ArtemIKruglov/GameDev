@@ -77,7 +77,7 @@ export default function PlayPage() {
     <div style={styles.page}>
       <header style={styles.header}>
         <Link to="/" style={styles.logo}>
-          GameSpark
+          Играйка
         </Link>
         <Link to="/gallery" style={styles.galleryLink}>
           Галерея 🏆

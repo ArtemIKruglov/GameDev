@@ -5,7 +5,7 @@ export default function PrivacyPage() {
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "2rem", lineHeight: 1.7 }}>
       <h1>Приватность 🔒</h1>
       <p style={{ marginTop: "1rem", color: "var(--color-text-muted)" }}>
-        GameSpark создан для детей и их семей. Мы серьёзно относимся
+        Играйка создан для детей и их семей. Мы серьёзно относимся
         к приватности и всё делаем просто.
       </p>
 
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
       <h2 style={{ marginTop: "1.5rem", fontSize: "1.2rem" }}>Анонимные сессии</h2>
       <p style={{ marginTop: "0.5rem" }}>
-        Когда ты заходишь на GameSpark, мы создаём случайный ID в cookie,
+        Когда ты заходишь на Играйка, мы создаём случайный ID в cookie,
         который живёт 24 часа. Он нужен только чтобы показывать тебе
         твои игры и защищать от злоупотреблений. По нему нельзя тебя узнать.
       </p>

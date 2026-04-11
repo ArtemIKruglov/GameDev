@@ -61,8 +61,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="GameSpark API",
-    description="AI-powered game creation platform for kids",
+    title="Играйка API",
+    description="Придумай игру — и вжух, она готова!",
     version="0.1.0",
     lifespan=lifespan,
 )

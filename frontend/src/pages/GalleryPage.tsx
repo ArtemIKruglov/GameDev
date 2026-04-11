@@ -9,7 +9,7 @@ export default function GalleryPage() {
     <div style={styles.page}>
       <header style={styles.header}>
         <Link to="/" style={styles.logo}>
-          GameSpark
+          Играйка
         </Link>
         <h1 style={styles.title}>Галерея игр 🏆</h1>
         <Link to="/" style={styles.createLink}>
