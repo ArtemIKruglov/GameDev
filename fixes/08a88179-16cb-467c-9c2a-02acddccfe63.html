@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>🐱 Кот на крышах</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#0a0a2e;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;user-select:none}
+canvas{display:block}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,46,0.88);backdrop-filter:blur(12px);z-index:10;transition:opacity .5s,visibility .5s}
+.ov.h{opacity:0;visibility:hidden;pointer-events:none}
+.ov h1{font-size:clamp(2rem,8vw,4.2rem);background:linear-gradient(135deg,#ff6b9d,#c44dff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.8rem;text-align:center;line-height:1.2}
+.ov p{color:#b0b0d0;font-size:clamp(.9rem,3vw,1.2rem);text-align:center;margin:.4rem 0;line-height:1.6}
+.sc-d{font-size:clamp(2.5rem,7vw,3.5rem);color:#ffd700;margin:.5rem 0;text-shadow:0 0 25px rgba(255,215,0,.5)}
+.btn{margin-top:1.5rem;padding:.9rem 2.4rem;font-size:clamp(1rem,3vw,1.3rem);font-weight:700;color:#fff;border:none;border-radius:50px;cursor:pointer;background:linear-gradient(135deg,#ff6b9d,#c44dff);box-shadow:0 4px 25px rgba(196,77,255,.4);transition:transform .2s,box-shadow .2s}
+.btn:hover{transform:scale(1.06);box-shadow:0 6px 35px rgba(196,77,255,.6)}
+.btn:active{transform:scale(.94)}
+.best{color:#00d4ff;font-size:clamp(.95rem,2.5vw,1.2rem);margin-top:.4rem}
+.emoji-title{font-size:clamp(3rem,10vw,5rem);margin-bottom:.3rem}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ov" id="ss">
+<div class="emoji-title">🐱⭐</div>
+<h1>Кот на крышах</h1>
+<p>Прыгай по крышам и собирай звёздочки!</p>
+<p>Пробел / Клик — прыжок (двойной прыжок!)</p>
+<button class="btn" id="sBtn">Играть!</button>
+</div>
+<div class="ov h" id="os">
+<div class="emoji-title">😿</div>
+<h1>Игра окончена</h1>
+<div class="sc-d" id="fsc">0</div>
+<p>звёзд собрано ⭐</p>
+<div class="best" id="bsd">Рекорд: 0</div>
+<button class="btn" id="rBtn">Играть снова</button>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W,H;
+const resize=()=>{W=c.width=innerWidth;H=c.height=innerHeight};
+resize();addEventListener('resize',resize);
+
+// Состояние
+let st='menu',sc=0,best=0,spd=3,diff=1;
+let shX=0,shY=0,shM=0,flash=0;
+let combo=0,combT=0,landT=0;
+let cat={x:0,y:0,vy:0,gnd:false,jmp:0},plats=[],stars=[],parts=[],ftxts=[],bgB=[],clds=[],skyS=[];
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+// Фоновые звёзды (фиксированные позиции)
+function mkSky(){skyS=[];for(let i=0;i<60;i++)skyS.push({x:Math.random()*3000,y:Math.random()*H*.45,sz:1+Math.random()*1.5,sp:.5+Math.random()*2})}
+
+function init(){
+  sc=0;spd=3;diff=1;
+  shX=shY=shM=flash=combo=combT=landT=0;
+  cat={x:W*.2,y:0,vy:0,gnd:false,jmp:0};
+  plats=[];stars=[];parts=[];ftxts=[];
+
+  // Первая платформа прямо под котом
+  let py=H*.65,px=cat.x-70;
+  plats.push({x:px,y:py,w:160,h:22});
+  cat.y=py-24;
+
+  // Генерация начальных платформ
+  for(let i=0;i<10;i++){
+    let pw=cl(95+Math.random()*100-diff*3,55,200);
+    px+=plats[plats.length-1].w+55+Math.random()*45;
+    py=cl(py+(Math.random()-.5)*90,H*.3,H*.8);
+    plats.push({x:px,y:py,w:pw,h:18+Math.random()*10});
+    if(Math.random()<.7) stars.push({x:px+pw/2,y:py-52-Math.random()*30,col:false,b:Math.random()*6.28});
+  }
+
+  // Фоновые здания
+  bgB=[];for(let i=0;i<18;i++) bgB.push({x:i*W/9+Math.random()*50,w:25+Math.random()*55,h:70+Math.random()*200,sp:.15+Math.random()*.4,wins:3+Math.floor(Math.random()*6)});
+  // Облака
+  clds=[];for(let i=0;i<5;i++) clds.push({x:Math.random()*W,y:15+Math.random()*H*.2,s:25+Math.random()*45,sp:.1+Math.random()*.25});
+  mkSky();
+}
+
+// Ввод
+function tryJump(){
+  if(st!=='play')return;
+  if(cat.jmp<2){
+    cat.vy=cat.jmp===0?-13.5:-11;
+    cat.jmp++;cat.gnd=false;
+    // Частицы прыжка
+    for(let i=0;i<7;i++){
+      let a=Math.random()*Math.PI,s=1+Math.random()*3;
+      parts.push({x:cat.x+(Math.random()-.5)*16,y:cat.y+24,vx:Math.cos(a)*s,vy:Math.sin(a)*s+1,life:1,c:`hsl(${190+Math.random()*40},80%,70%)`,sz:3+Math.random()*3});
+    }
+  }
+}
+addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){e.preventDefault();tryJump()}});
+c.addEventListener('mousedown',tryJump);
+c.addEventListener('touchstart',e=>{e.preventDefault();tryJump()});
+document.getElementById('sBtn').onclick=()=>{st='play';init();document.getElementById('ss').classList.add('h')};
+document.getElementById('rBtn').onclick=()=>{st='play';init();document.getElementById('os').classList.add('h')};
+
+// Обновление
+function update(){
+  if(st!=='play')return;
+  diff=1+sc/8;
+  spd=3+diff*.45;
+
+  let prevY=cat.y;
+  cat.vy+=.55;
+  cat.y+=cat.vy;
+  if(landT>0)landT--;
+
+  // Столкновения с платформами
+  cat.gnd=false;
+  for(let p of plats){
+    if(cat.x+16>p.x&&cat.x-16<p.x+p.w){
+      let pb=prevY+24,cb=cat.y+24;
+      if(pb<=p.y+8&&cb>=p.y&&cat.vy>0){
+        let lv=cat.vy;
+        cat.y=p.y-24;cat.vy=0;cat.gnd=true;cat.jmp=0;
+        if(lv>5){shM=cl(lv*.8,3,12);landT=8;
+          for(let i=0;i<10;i++) parts.push({x:cat.x+(Math.random()-.5)*30,y:p.y,vx:(Math.random()-.5)*4,vy:-Math.random()*2.5-1,c:'hsl(30,40%,55%)',sz:2+Math.random()*4,life:1});
+        }
+        break;
+      }
+    }
+  }
+
+  // Прокрутка
+  for(let p of plats)p.x-=spd;
+  for(let s of stars)s.x-=spd;
+
+  // Удаление за экраном
+  plats=plats.filter(p=>p.x+p.w>-80);
+  stars=stars.filter(s=>!s.col&&s.x>-60);
+
+  // Генерация новых платформ
+  let lp=plats[plats.length-1];
+  if(lp&&lp.x+lp.w<W+350){
+    let gap=55+Math.random()*40+cl(diff*12,0,60);
+    let ny=cl(lp.y+(Math.random()-.5)*(70+diff*12),H*.28,H*.82);
+    let nw=cl(130-diff*5+Math.random()*50,50,200);
+    plats.push({x:lp.x+lp.w+gap,y:ny,w:nw,h:16+Math.random()*10});
+    if(Math.random()<.68){
+      let sx=lp.x+lp.w+gap+nw/2;
+      stars.push({x:sx,y:ny-48-Math.random()*35,col:false,b:Math.random()*6.28});
+    }
+    // Редкая рыба (5 очков)
+    if(Math.random()<.06&&sc>3){
+      let fx=lp.x+lp.w+gap+nw/2;
+      stars.push({x:fx,y:ny-75-Math.random()*25,col:false,b:Math.random()*6.28,fish:true});
+    }
+  }
+
+  // Сбор звёзд
+  for(let s of stars){
+    if(s.col)continue;
+    let dx=cat.x-s.x,dy=cat.y-s.y;
+    if(dx*dx+dy*dy<38*38){
+      s.col=true;
+      let pts=s.fish?5:1;
+      sc+=pts;combo++;combT=150;
+      // Всплывающий текст
+      ftxts.push({x:s.x,y:s.y,t:s.fish?'+5 🐟':'+1',life:1,c:s.fish?'#00d4ff':'#ffd700'});
+      // Частицы
+      let n=s.fish?20:12;
+      for(let i=0;i<n;i++){
+        let a=Math.random()*6.28,sp=2+Math.random()*(s.fish?7:5);
+        let hue=s.fish?180+Math.random()*40:40+Math.random()*25;
+        parts.push({x:s.x,y:s.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,c:`hsl(${hue},100%,${60+Math.random()*30}%)`,sz:3+Math.random()*(s.fish?6:4)});
+      }
+      shM=s.fish?8:4;
+      // Комбо сообщения
+      if(combo===3)ftxts.push({x:cat.x,y:cat.y-50,t:'🔥 Огонь!',life:1.5,c:'#ff6b9d'});
+      if(combo===5)ftxts.push({x:cat.x,y:cat.y-50,t:'✨ Волшебство!',life:1.5,c:'#c44dff'});
+      if(combo===8)ftxts.push({x:cat.x,y:cat.y-50,t:'🚀 Суперкот!',life:1.5,c:'#00d4ff'});
+    }
+  }
+
+  if(combT>0)combT--;else combo=0;
+
+  // Пыль при беге
+  if(cat.gnd&&Math.random()<.25){
+    parts.push({x:cat.x+12+Math.random()*8,y:cat.y+23,vx:1+Math.random()*2,vy:-Math.random()*1.5,c:'rgba(140,120,170,0.5)',sz:2+Math.random()*2,life:.6});
+  }
+  // След в воздухе
+  if(!cat.gnd&&Math.random()<.2){
+    parts.push({x:cat.x+(Math.random()-.5)*10,y:cat.y+20,vx:(Math.random()-.5)*.4,vy:.3+Math.random()*.3,c:'rgba(200,160,255,0.4)',sz:2+Math.random()*2,life:.5});
+  }
+
+  // Обновление частиц
+  for(let p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=.08;p.life-=.025}
+  parts=parts.filter(p=>p.life>0);
+  // Всплывающие тексты
+  for(let f of ftxts){f.y-=1.2;f.life-=.02}
+  ftxts=ftxts.filter(f=>f.life>0);
+
+  // Тряска
+  if(shM>.4){shX=(Math.random()-.5)*shM;shY=(Math.random()-.5)*shM;shM*=.82}else shX=shY=0;
+
+  // Фон
+  for(let b of bgB){b.x-=spd*b.sp;if(b.x+b.w<-10){b.x=W+Math.random()*100;b.h=70+Math.random()*200;b.wins=3+Math.floor(Math.random()*6)}}
+  for(let cl2 of clds){cl2.x-=cl2.sp;if(cl2.x+cl2.s<-20)cl2.x=W+cl2.s+Math.random()*100}
+
+  // Конец игры
+  if(cat.y>H+70){
+    st='over';
+    if(sc>best)best=sc;
+    document.getElementById('fsc').textContent=sc;
+    document.getElementById('bsd').textContent='Рекорд: '+best;
+    flash=1;
+    setTimeout(()=>document.getElementById('os').classList.remove('h'),500);
+  }
+  if(flash>0)flash-=.035;
+}
+
+// Отрисовка
+function draw(){
+  ctx.save();
+  ctx.translate(shX,shY);
+
+  // Небо
+  let sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#070720');sky.addColorStop(0.4,'#15103d');sky.addColorStop(1,'#2d1b69');
+  ctx.fillStyle=sky;ctx.fillRect(-20,-20,W+40,H+40);
+
+  // Фоновые звёзды
+  let t=Date.now()/1000;
+  for(let s of skyS){
+    let sx=s.x%W,sy=s.y;
+    let tw=.2+.8*Math.abs(Math.sin(t*s.sp+s.x));
+    ctx.globalAlpha=tw*.6;ctx.fillStyle='#fff';
+    ctx.fillRect(sx,sy,s.sz,s.sz);
+  }
+  ctx.globalAlpha=1;
+
+  // Луна
+  let mx=W*.82,my=H*.1;
+  let mg=ctx.createRadialGradient(mx,my,0,mx,my,90);
+  mg.addColorStop(0,'rgba(255,255,210,0.25)');mg.addColorStop(1,'rgba(255,255,210,0)');
+  ctx.fillStyle=mg;ctx.fillRect(mx-90,my-90,180,180);
+  ctx.fillStyle='#fffde0';ctx.beginPath();ctx.arc(mx,my,28,0,6.28);ctx.fill();
+  ctx.fillStyle='rgba(200,195,160,0.25)';
+  ctx.beginPath();ctx.arc(mx-7,my-4,7,0,6.28);ctx.fill();
+  ctx.beginPath();ctx.arc(mx+9,my+7,4.5,0,6.28);ctx.fill();
+
+  // Фоновые здания
+  for(let b of bgB){
+    let l=10+b.sp*8;
+    ctx.fillStyle=`hsl(245,18%,${l}%)`;
+    ctx.fillRect(b.x,H-b.h,b.w,b.h);
+    ctx.fillStyle='rgba(255,210,80,0.45)';
+    for(let wy=H-b.h+12;wy<H-8;wy+=22){
+      for(let wx=b.x+4;wx<b.x+b.w-7;wx+=11){
+        if(Math.sin(wx*3.7+wy*2.3)>.15)ctx.fillRect(wx,wy,5,7);
+      }
+    }
+  }
+
+  // Облака
+  ctx.fillStyle='rgba(160,150,200,0.1)';
+  for(let cl2 of clds){
+    ctx.beginPath();ctx.arc(cl2.x,cl2.y,cl2.s,0,6.28);
+    ctx.arc(cl2.x+cl2.s*.55,cl2.y-cl2.s*.2,cl2.s*.65,0,6.28);
+    ctx.arc(cl2.x-cl2.s*.35,cl2.y+cl2.s*.12,cl2.s*.55,0,6.28);
+    ctx.fill();
+  }
+
+  // Игровые платформы (крыши)
+  for(let p of plats){
+    // Тело здания
+    let bg=ctx.createLinearGradient(p.x,p.y,p.x,H);
+    bg.addColorStop(0,'#221745');bg.addColorStop(1,'#130d30');
+    ctx.fillStyle=bg;ctx.fillRect(p.x,p.y+5,p.w,H-p.y);
+    // Крыша
+    ctx.fillStyle='#3a2868';ctx.fillRect(p.x-4,p.y,p.w+8,7);
+    // Неоновый край
+    ctx.fillStyle='#b84dff';ctx.fillRect(p.x-4,p.y,p.w+8,2.5);
+    // Парапет
+    ctx.fillStyle='#2d1f58';
+    ctx.fillRect(p.x-3,p.y-9,9,9);
+    ctx.fillRect(p.x+p.w-6,p.y-9,9,9);
+    // Окна
+    ctx.fillStyle='rgba(255,195,70,0.45)';
+    for(let wy=p.y+22;wy<H-15;wy+=28){
+      for(let wx=p.x+7;wx<p.x+p.w-10;wx+=16){
+        if(Math.sin(wx*2.3+wy*1.9)>.05)ctx.fillRect(wx,wy,7,10);
+      }
+    }
+  }
+
+  // Звёзды/рыбы
+  for(let s of stars){
+    if(s.col)continue;
+    s.b+=.05;
+    let sy=s.y+Math.sin(s.b)*8;
+    // Свечение
+    let gc=s.fish?'rgba(0,212,255,0.2)':'rgba(255,215,0,0.2)';
+    ctx.fillStyle=gc;ctx.beginPath();ctx.arc(s.x,sy,s.fish?22:18,0,6.28);ctx.fill();
+    ctx.font=(s.fish?'30':'26')+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(s.fish?'🐟':'⭐',s.x,sy);
+  }
+
+  // Кот
+  ctx.save();
+  ctx.translate(cat.x,cat.y);
+  // Сжатие при приземлении
+  if(landT>0){let f=landT/8;ctx.scale(1+f*.25,1-f*.2)}
+  // Вращение в воздухе
+  if(!cat.gnd){ctx.rotate(cl(cat.vy*.015,-.3,.3))}
+  // Свечение
+  ctx.fillStyle='rgba(255,140,200,0.12)';ctx.beginPath();ctx.arc(0,0,32,0,6.28);ctx.fill();
+  ctx.font='46px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🐱',0,-2);
+  ctx.restore();
+
+  // Частицы
+  for(let p of parts){
+    ctx.globalAlpha=cl(p.life,0,1);ctx.fillStyle=p.c;
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.5,p.sz*p.life),0,6.28);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Всплывающие тексты
+  for(let f of ftxts){
+    ctx.globalAlpha=cl(f.life,0,1);
+    ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillStyle=f.c;
+    ctx.shadowColor=f.c;ctx.shadowBlur=10;
+    ctx.fillText(f.t,f.x,f.y);
+    ctx.shadowBlur=0;
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.font='bold 26px sans-serif';ctx.textAlign='left';
+  ctx.fillStyle='#ffd700';ctx.shadowColor='rgba(255,215,0,0.4)';ctx.shadowBlur=8;
+  ctx.fillText('⭐ '+sc,18,38);
+  ctx.shadowBlur=0;
+  if(combo>1){
+    let cc=combo>=8?'#00d4ff':combo>=5?'#c44dff':'#ff6b9d';
+    ctx.font='bold 20px sans-serif';ctx.fillStyle=cc;
+    ctx.fillText('Комбо x'+combo+'!',18,64);
+  }
+  // Скорость
+  ctx.font='14px sans-serif';ctx.fillStyle='rgba(180,160,220,0.5)';ctx.textAlign='right';
+  ctx.fillText('Скорость: '+spd.toFixed(1)+'x',W-15,30);
+
+  // Вспышка
+  if(flash>0){ctx.fillStyle=`rgba(255,255,255,${cl(flash,0,1)})`;ctx.fillRect(-20,-20,W+40,H+40)}
+
+  ctx.restore();
+}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+loop();
+</script>
+</body>
+</html>

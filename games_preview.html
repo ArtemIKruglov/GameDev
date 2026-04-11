@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Играйка — Превью игр и отчёт</title>
+<style>
+  :root { --bg: #0f0a1e; --card: #1a1230; --accent: #7c5cfc; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --text: #e2e8f0; --muted: #94a3b8; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  h1 { font-size: 2.5rem; text-align: center; margin-bottom: 0.5rem; background: linear-gradient(135deg, #7c5cfc, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 1.1rem; margin-bottom: 2.5rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid rgba(124,92,252,0.2); }
+  .stat-number { font-size: 2.5rem; font-weight: 800; }
+  .stat-number.green { color: var(--green); }
+  .stat-number.red { color: var(--red); }
+  .stat-number.yellow { color: var(--yellow); }
+  .stat-number.accent { color: var(--accent); }
+  .stat-label { color: var(--muted); font-size: 0.9rem; margin-top: 0.25rem; }
+
+  h2 { font-size: 1.5rem; margin: 2rem 0 1rem; padding-left: 0.5rem; border-left: 3px solid var(--accent); }
+
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .game-card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.06); transition: transform 0.2s; }
+  .game-card:hover { transform: translateY(-2px); }
+  .game-card.broken { border-color: rgba(239,68,68,0.3); }
+  .game-card.fixed { border-color: rgba(234,179,8,0.3); }
+  .game-card.ok { border-color: rgba(34,197,94,0.2); }
+
+  .game-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem; }
+  .game-title { font-weight: 700; font-size: 1rem; }
+  .badge { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; white-space: nowrap; }
+  .badge.ok { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge.broken { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge.fixed { background: rgba(234,179,8,0.15); color: var(--yellow); }
+
+  .game-prompt { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .game-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--muted); }
+  .game-error { color: var(--red); font-size: 0.8rem; font-family: monospace; margin-top: 0.5rem; padding: 0.5rem; background: rgba(239,68,68,0.08); border-radius: 6px; }
+  .game-fix { color: var(--yellow); font-size: 0.8rem; margin-top: 0.5rem; padding: 0.5rem; background: rgba(234,179,8,0.08); border-radius: 6px; }
+
+  .link { color: var(--accent); text-decoration: none; }
+  .link:hover { text-decoration: underline; }
+
+  .section-desc { color: var(--muted); margin-bottom: 1rem; }
+
+  .deploy-box { background: var(--card); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(124,92,252,0.3); margin: 2rem 0; }
+  .deploy-box h3 { color: var(--accent); margin-bottom: 0.5rem; }
+  code { background: rgba(124,92,252,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #0a0614; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; margin-top: 0.5rem; color: #a5f3fc; }
+
+  .pattern-box { background: var(--card); border-radius: 12px; padding: 1.5rem; border: 1px solid rgba(234,179,8,0.2); margin: 1.5rem 0; }
+  .pattern-box h3 { color: var(--yellow); margin-bottom: 0.75rem; }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .game-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Играйка — Аудит игр</h1>
+<p class="subtitle">Автоматическая проверка всех игр на сайте 46.21.245.72 | 11 апреля 2026</p>
+
+<div class="stats">
+  <div class="stat-card"><div class="stat-number accent">33</div><div class="stat-label">Всего игр</div></div>
+  <div class="stat-card"><div class="stat-number green">24</div><div class="stat-label">Работают</div></div>
+  <div class="stat-card"><div class="stat-number red">9</div><div class="stat-label">Были сломаны</div></div>
+  <div class="stat-card"><div class="stat-number yellow">9</div><div class="stat-label">Исправлены</div></div>
+</div>
+
+<div class="pattern-box">
+  <h3>Главная причина поломок</h3>
+  <p>Все 9 сломанных игр имеют одну и ту же корневую причину: <strong>неинициализированные переменные-массивы</strong>.</p>
+  <p style="margin-top:0.5rem">AI-генераторы объявляют переменные как <code>let enemies, bullets, particles;</code> и инициализируют их только в функции <code>init()</code>. Но цикл отрисовки <code>requestAnimationFrame(draw)</code> запускается сразу при загрузке страницы — до того, как пользователь нажмёт "Старт" и вызовет <code>init()</code>. В результате <code>for (let e of enemies)</code> падает с ошибкой <code>TypeError: enemies is not iterable</code>.</p>
+  <p style="margin-top:0.5rem"><strong>Рекомендация для промпта генерации:</strong> добавить в system prompt правило: <em>"Always initialize array variables with = [] at declaration, not just inside init()."</em></p>
+</div>
+
+<h2>Сломанные игры (исправлены)</h2>
+<p class="section-desc">Эти 9 игр имели JavaScript-ошибки и не запускались. Исправления готовы к деплою.</p>
+
+<div class="game-grid">
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Counter Strike 1.6 (Неоновый Спецназ)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Шутер с видом сверху, пришельцы и бомбы</div>
+    <div class="game-error">TypeError: Cannot read 'forEach' of undefined</div>
+    <div class="game-fix">Фикс: инициализация bullets=[], enemies=[], bombs=[], particles=[], shockwaves=[]</div>
+    <div class="game-meta"><span>ID: 3104c28a</span><span>12.7 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Буквопад (оригинал)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Печатай буквы быстрее, чем они падают!</div>
+    <div class="game-error">Cannot read 'length' of undefined</div>
+    <div class="game-fix">Фикс: letters=[], particles=[], bgStars=[]</div>
+    <div class="game-meta"><span>ID: 525cb456</span><span>18.4 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Буквопад (refined v1)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Печатай буквы быстрее, чем они падают! (refined)</div>
+    <div class="game-error">SyntaxError: Invalid or unexpected token</div>
+    <div class="game-fix">Фикс: исправлена синтаксическая ошибка в массиве touchRows</div>
+    <div class="game-meta"><span>ID: 805fa164</span><span>14.9 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Неоновый Бластер</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Космический шутер с неоновыми цветами</div>
+    <div class="game-error">TypeError: powerups is not iterable</div>
+    <div class="game-fix">Фикс: bullets=[], enemies=[], particles=[], powerups=[], stars=[]</div>
+    <div class="game-meta"><span>ID: e6290cd8</span><span>15.5 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Котик на крышах (v1)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Котик прыгает по крышам и собирает звёздочки</div>
+    <div class="game-error">TypeError: skyS is not iterable</div>
+    <div class="game-fix">Фикс: cat={x:0,y:0,...}, plats=[], stars=[], parts=[], ftxts=[], bgB=[], clds=[], spd=3</div>
+    <div class="game-meta"><span>ID: 08a88179</span><span>13.0 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Котик на крышах (v2)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Котик прыгает по крышам и собирает звёздочки</div>
+    <div class="game-error">bgBuildings is not iterable</div>
+    <div class="game-fix">Фикс: cat={trail:[]}, bgBuildings=[]</div>
+    <div class="game-meta"><span>ID: 270e9947</span><span>12.2 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Котик на крышах (v3)</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Котик прыгает по крышам и собирает звёздочки</div>
+    <div class="game-error">TypeError: roofs is not iterable</div>
+    <div class="game-fix">Фикс: roofs=[], stars=[], gems=[], birds=[], pts=[], bgS=[], clouds=[]</div>
+    <div class="game-meta"><span>ID: ea7cf76b</span><span>14.4 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Волк ловит яйца</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Волк с корзиной ловит яйца</div>
+    <div class="game-error">Cannot read 'length' of undefined</div>
+    <div class="game-fix">Фикс: eggs=[], particles=[], popups=[]</div>
+    <div class="game-meta"><span>ID: 7ba7f3b5</span><span>12.7 КБ</span></div>
+  </div>
+
+  <div class="game-card fixed">
+    <div class="game-header">
+      <span class="game-title">Змейка-котик</span>
+      <span class="badge fixed">исправлено</span>
+    </div>
+    <div class="game-prompt">Змейка — вместо змеи длинный котик, он съедает собачек</div>
+    <div class="game-error">CanvasRenderingContext2D is not defined + dogs is not iterable</div>
+    <div class="game-fix">Фикс: typeof check для CanvasRenderingContext2D + cat=[], dogs=[], particles=[], bgStars=[]</div>
+    <div class="game-meta"><span>ID: ea983c70</span><span>17.3 КБ</span></div>
+  </div>
+
+</div>
+
+<h2>Работающие игры (24)</h2>
+<p class="section-desc">Эти игры прошли проверку и работают корректно.</p>
+
+<div class="game-grid">
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Шаурма Мастер</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Игра, где надо завернуть шаурму — ловить ингредиенты в лаваш</div>
+    <div class="game-meta"><span>ID: 29bd28f0</span><span>11.8 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Карточные Хроники</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Карты в жанре фэнтези — карточная битва с монстрами</div>
+    <div class="game-meta"><span>ID: d9b0b5e1</span><span>20.4 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Волк ловит яйца (v1)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Аркадная игра «Волк ловит яйца» — 4 лотка, управление кнопками</div>
+    <div class="game-meta"><span>ID: 929b98d8</span><span>15.7 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Волк ловит яйца (v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Аркадная игра «Волк ловит яйца» — 4 лотка, управление кнопками</div>
+    <div class="game-meta"><span>ID: 74027e96</span><span>12.9 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Путь до Мекки</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Собирай финики и раздавай нуждающимся по пути до Мекки</div>
+    <div class="game-meta"><span>ID: 81a9f85d</span><span>14.0 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Гриб-телепортер</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Гриб убегает от красного волка, телепортируясь между лесом и городом</div>
+    <div class="game-meta"><span>ID: f77c8b32</span><span>10.3 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Клавиатурный Шторм</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Печатай буквы быстрее, чем они падают! (refined x2)</div>
+    <div class="game-meta"><span>ID: b1596b7f</span><span>14.8 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">3D Лабиринт (v1)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">3D игра — гуляешь по лабиринту с разными биомами</div>
+    <div class="game-meta"><span>ID: 7858ef31</span><span>11.5 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">3D Лабиринт (v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">3D игра — гуляешь по лабиринту с разными биомами</div>
+    <div class="game-meta"><span>ID: 5919617c</span><span>15.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Виртуальный друг Артём</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Виртуальный друг в очках — Артём Круглов, выпускник МФТИ</div>
+    <div class="game-meta"><span>ID: 2ba10495</span><span>19.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Виртуальный друг Артём (v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Виртуальный друг — Артём Круглов, AI-гуру и основатель AnyQuery</div>
+    <div class="game-meta"><span>ID: b6bc67a1</span><span>21.2 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Найди пару — мемори</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Мемори с животными — найди пару</div>
+    <div class="game-meta"><span>ID: 7fc413d6</span><span>15.8 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Бей кротов-инопланетян</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Бей кротов, но кроты — это смешные инопланетяне</div>
+    <div class="game-meta"><span>ID: f1ff0567</span><span>15.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Космический шутер (v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Космический шутер с неоновыми цветами</div>
+    <div class="game-meta"><span>ID: fbd76d14</span><span>14.0 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Соединяй цвета</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Соединяй цвета по парам</div>
+    <div class="game-meta"><span>ID: d509cc8d</span><span>12.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Котик на крышах (v4)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Котик прыгает по крышам и собирает звёздочки</div>
+    <div class="game-meta"><span>ID: a6cfdb2c</span><span>12.3 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Cat Rooftops (EN)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A game where a cat jumps between rooftops collecting stars</div>
+    <div class="game-meta"><span>ID: 66695b2e</span><span>12.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Волк ловит яйца (v3)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Волк с корзиной подносит корзину влево/вправо</div>
+    <div class="game-meta"><span>ID: cc5cde1f</span><span>13.2 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Cat Rooftops refined (EN)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">Cat jumps between rooftops collecting stars (refined)</div>
+    <div class="game-meta"><span>ID: 1206faf7</span><span>12.7 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Мячик (v1)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A simple game where a ball bounces around the screen</div>
+    <div class="game-meta"><span>ID: 801eb30c</span><span>13.3 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Мячик (v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A simple game where a ball bounces around the screen</div>
+    <div class="game-meta"><span>ID: eb184bcd</span><span>9.7 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Memory Animals (EN)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A memory card matching game with animals</div>
+    <div class="game-meta"><span>ID: 415c035e</span><span>14.3 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Cat Rooftops (EN v2)</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A game where a cat jumps between rooftops collecting stars</div>
+    <div class="game-meta"><span>ID: 0531417a</span><span>12.6 КБ</span></div>
+  </div>
+
+  <div class="game-card ok">
+    <div class="game-header"><span class="game-title">Пингвин на льду</span><span class="badge ok">ок</span></div>
+    <div class="game-prompt">A fun platformer where a little penguin slides on ice, collects fish</div>
+    <div class="game-meta"><span>ID: 3329146e</span><span>14.4 КБ</span></div>
+  </div>
+
+</div>
+
+<div class="deploy-box">
+  <h3>Как задеплоить исправления</h3>
+  <p>Исправленные HTML-файлы находятся в папке <code>fixes/</code>. Скрипт <code>fix_broken_games.py</code> обновит базу данных.</p>
+  <pre>cd /path/to/GameDev/backend
+python3 ../fix_broken_games.py</pre>
+  <p style="margin-top:0.75rem">Скрипт автоматически создаст бэкап БД перед изменениями.</p>
+</div>
+
+<div class="pattern-box">
+  <h3>Рекомендация: предотвращение багов в будущем</h3>
+  <p>Добавьте в system prompt генерации игр (<code>backend/app/services/game_generator.py</code>) строку:</p>
+  <pre>CRITICAL: Always initialize ALL array and object variables at declaration time with default values (e.g. let enemies = [], let player = {x:0, y:0}).
+Never declare variables with just 'let x, y, z;' if they will be used in for...of loops or have properties accessed before init() is called.
+The draw/update loop starts via requestAnimationFrame immediately — before init() or startGame() is called by the user.</pre>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Волк ловит яйца</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a1a;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    touch-action: none;
+  }
+  #game-container {
+    position: relative;
+    width: 100vmin;
+    height: 100vmin;
+    max-width: 600px;
+    max-height: 600px;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0,0,0,0.5);
+  }
+  .overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(10, 10, 26, 0.85);
+    backdrop-filter: blur(5px);
+    border-radius: 20px;
+    transition: opacity 0.3s;
+    z-index: 10;
+  }
+  .hidden { opacity: 0; pointer-events: none; }
+  h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 15px #0ff, 0 0 30px #0ff;
+    color: #0ff;
+  }
+  p {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    max-width: 80%;
+    line-height: 1.4;
+    color: #ddd;
+  }
+  .keys { color: #0ff; font-weight: bold; }
+  .btn {
+    margin-top: 2rem;
+    padding: 1rem 2.5rem;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #0a0a1a;
+    background: #0ff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 0 20px #0ff;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn:hover { transform: scale(1.05); box-shadow: 0 0 30px #0ff; }
+  .btn:active { transform: scale(0.95); }
+  #score-display {
+    position: absolute;
+    top: 15px; left: 20px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 10px #fff;
+    z-index: 5;
+  }
+  #lives-display {
+    position: absolute;
+    top: 15px; right: 20px;
+    font-size: 1.5rem;
+    z-index: 5;
+  }
+  #best-score {
+    font-size: 1.2rem;
+    color: #ffd700;
+    text-shadow: 0 0 10px #ffd700;
+    margin-top: 1rem;
+  }
+  .final-score { font-size: 2.5rem; color: #0ff; margin: 1rem 0; text-shadow: 0 0 15px #0ff; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="c"></canvas>
+  <div id="score-display">Счёт: 0</div>
+  <div id="lives-display">❤️❤️❤️</div>
+  
+  <div id="start-screen" class="overlay">
+    <h1>🐺 Яйцелов 🥚</h1>
+    <p>Помоги волку поймать все яйца в корзину!</p>
+    <p>Управление: <br><span class="keys">Q</span> / <span class="keys">A</span> / <span class="keys">D</span> / <span class="keys">C</span><br>Или кликай по углам экрана!</p>
+    <button class="btn" id="start-btn">ИГРАТЬ</button>
+  </div>
+
+  <div id="end-screen" class="overlay hidden">
+    <h1>Разбилось! 💥</h1>
+    <p>Твой счёт:</p>
+    <div class="final-score" id="final-score-val">0</div>
+    <div id="best-score">Лучший: 0</div>
+    <button class="btn" id="restart-btn">ЕЩЁ РАЗ</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('game-container');
+
+const scoreDisplay = document.getElementById('score-display');
+const livesDisplay = document.getElementById('lives-display');
+const startScreen = document.getElementById('start-screen');
+const endScreen = document.getElementById('end-screen');
+const finalScoreVal = document.getElementById('final-score-val');
+const bestScoreEl = document.getElementById('best-score');
+
+let W, H, s;
+let bestScore = 0;
+let gameState = 'start'; // start, play, over
+
+// Настройки игры
+let score, lives, wolfDir, wolfAngle, targetAngle;
+let eggs = [], particles = [], popups = [];
+let spawnTimer, spawnInterval, eggSpeed;
+let shakeTime = 0;
+
+// Звук
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(freq, dur, type = 'square') {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+// Треки (0: ВЛ, 1: НЛ, 2: ВП, 3: НП)
+const tracks = [
+  { sx: 0.12, sy: 0.12, ex: 0.38, ey: 0.38, ang: -2.35 }, // ВЛ (TL)
+  { sx: 0.12, sy: 0.88, ex: 0.38, ey: 0.62, ang: 2.35 },  // НЛ (BL)
+  { sx: 0.88, sy: 0.12, ex: 0.62, ey: 0.38, ang: -0.78 }, // ВП (TR)
+  { sx: 0.88, sy: 0.88, ex: 0.62, ey: 0.62, ang: 0.78 }   // НП (BR)
+];
+
+function resize() {
+  W = container.clientWidth;
+  H = container.clientHeight;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  s = Math.min(W, H);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function initGame() {
+  score = 0;
+  lives = 3;
+  wolfDir = 0;
+  wolfAngle = tracks[0].ang;
+  targetAngle = wolfAngle;
+  eggs = [];
+  particles = [];
+  popups = [];
+  spawnTimer = 0;
+  spawnInterval = 1500;
+  eggSpeed = 0.4;
+  shakeTime = 0;
+  updateUI();
+}
+
+function updateUI() {
+  scoreDisplay.innerText = `Счёт: ${score}`;
+  let h = '';
+  for(let i=0; i<3; i++) h += i < lives ? '❤️' : '🖤';
+  livesDisplay.innerHTML = h;
+}
+
+function spawnEgg() {
+  let t = Math.floor(Math.random() * 4);
+  eggs.push({
+    dir: t,
+    progress: 0,
+    rot: 0
+  });
+}
+
+function spawnParticles(x, y, color1, color2, count) {
+  for (let i = 0; i < count; i++) {
+    let angle = Math.random() * Math.PI * 2;
+    let speed = Math.random() * 150 + 50;
+    particles.push({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      color: Math.random() > 0.5 ? color1 : color2,
+      size: Math.random() * 4 + 2
+    });
+  }
+}
+
+function spawnPopup(x, y, text, color) {
+  popups.push({ x, y, text, color, life: 1 });
+}
+
+function setWolfDir(dir) {
+  if (gameState !== 'play') return;
+  wolfDir = dir;
+  targetAngle = tracks[dir].ang;
+}
+
+// Управление
+document.addEventListener('keydown', (e) => {
+  if (gameState !== 'play') return;
+  if (e.key === 'q' || e.key === 'Q' || e.key === 'й' || e.key === 'Й') setWolfDir(0);
+  if (e.key === 'a' || e.key === 'A' || e.key === 'ф' || e.key === 'Ф') setWolfDir(1);
+  if (e.key === 'e' || e.key === 'E' || e.key === 'у' || e.key === 'У') setWolfDir(2);
+  if (e.key === 'c' || e.key === 'C' || e.key === 'с' || e.key === 'С') setWolfDir(3);
+});
+
+function handleInput(e) {
+  if (gameState !== 'play') return;
+  const rect = canvas.getBoundingClientRect();
+  let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+  let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+  
+  let x = clientX - rect.left;
+  let y = clientY - rect.top;
+
+  if (x < W/2 && y < H/2) setWolfDir(0); // ВЛ
+  else if (x < W/2 && y >= H/2) setWolfDir(1); // НЛ
+  else if (x >= W/2 && y < H/2) setWolfDir(2); // ВП
+  else if (x >= W/2 && y >= H/2) setWolfDir(3); // НП
+}
+
+canvas.addEventListener('mousedown', handleInput);
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); }, {passive: false});
+
+// Кнопки
+document.getElementById('start-btn').addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  initGame();
+  gameState = 'play';
+  audioCtx.resume();
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  endScreen.classList.add('hidden');
+  initGame();
+  gameState = 'play';
+});
+
+let lastTime = 0;
+
+function gameLoop(time = 0) {
+  requestAnimationFrame(gameLoop);
+  const dt = Math.min((time - lastTime) / 1000, 0.1);
+  lastTime = time;
+
+  if (gameState === 'play') {
+    // Обновление сложности
+    eggSpeed = 0.4 + score * 0.005;
+    spawnInterval = Math.max(400, 1500 - score * 15);
+
+    // Поворот волка
+    wolfAngle += (targetAngle - wolfAngle) * 0.2;
+
+    // Спавн яиц
+    spawnTimer += dt * 1000;
+    if (spawnTimer >= spawnInterval) {
+      spawnEgg();
+      spawnTimer = 0;
+    }
+
+    // Обновление яиц
+    for (let i = eggs.length - 1; i >= 0; i--) {
+      let egg = eggs[i];
+      egg.progress += dt * eggSpeed;
+      egg.rot += dt * 5;
+
+      if (egg.progress >= 1.0) {
+        let t = tracks[egg.dir];
+        let ex = t.ex * W;
+        let ey = t.ey * H;
+
+        if (egg.dir === wolfDir) {
+          // Поймал!
+          score += 10;
+          spawnParticles(ex, ey, '#ffd700', '#ffffff', 15);
+          spawnPopup(ex, ey, '+10', '#0ff');
+          playSound(880, 0.1, 'sine');
+        } else {
+          // Промах!
+          lives--;
+          shakeTime = 0.3;
+          spawnParticles(ex, ey, '#ff0000', '#ffffaa', 25);
+          spawnPopup(ex, ey, 'Разбилось!', '#f44');
+          playSound(150, 0.3, 'sawtooth');
+          
+          if (lives <= 0) {
+            gameState = 'over';
+            if (score > bestScore) bestScore = score;
+            finalScoreVal.innerText = score;
+            bestScoreEl.innerText = `Лучший: ${bestScore}`;
+            setTimeout(() => endScreen.classList.remove('hidden'), 500);
+          }
+        }
+        eggs.splice(i, 1);
+        updateUI();
+      }
+    }
+  }
+
+  // Обновление частиц
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 400 * dt; // гравитация
+    p.life -= dt * 2;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Обновление всплывающего текста
+  for (let i = popups.length - 1; i >= 0; i--) {
+    let p = popups[i];
+    p.y -= 50 * dt;
+    p.life -= dt;
+    if (p.life <= 0) popups.splice(i, 1);
+  }
+
+  // Тряска экрана
+  if (shakeTime > 0) shakeTime -= dt;
+
+  draw();
+}
+
+function draw() {
+  ctx.save();
+
+  // Тряска
+  if (shakeTime > 0) {
+    ctx.translate(Math.random()*10-5, Math.random()*10-5);
+  }
+
+  // Фон
+  let grd = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W/2);
+  grd.addColorStop(0, '#1a1a2e');
+  grd.addColorStop(1, '#0a0a14');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  // Сетка
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+  ctx.lineWidth = 1;
+  for(let i=0; i<W; i+= W/10) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke();
+  }
+
+  // Линии путей
+  ctx.setLineDash([10, 15]);
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 4; i++) {
+    let t = tracks[i];
+    ctx.strokeStyle = wolfDir === i ? 'rgba(0, 255, 255, 0.6)' : 'rgba(0, 255, 255, 0.15)';
+    ctx.beginPath();
+    ctx.moveTo(t.sx * W, t.sy * H);
+    ctx.lineTo(t.ex * W, t.ey * H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Подсветка активной зоны
+  ctx.fillStyle = `rgba(0, 255, 255, 0.05)`;
+  if (wolfDir === 0) ctx.fillRect(0, 0, W/2, H/2);
+  if (wolfDir === 1) ctx.fillRect(0, H/2, W/2, H/2);
+  if (wolfDir === 2) ctx.fillRect(W/2, 0, W/2, H/2);
+  if (wolfDir === 3) ctx.fillRect(W/2, H/2, W/2, H/2);
+
+  // Курицы
+  ctx.font = `${s*0.08}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < 4; i++) {
+    ctx.fillText('🐔', tracks[i].sx * W, tracks[i].sy * H);
+  }
+
+  // Яйца
+  ctx.font = `${s*0.06}px serif`;
+  for (let egg of eggs) {
+    let t = tracks[egg.dir];
+    let x = t.sx * W + (t.ex * W - t.sx * W) * egg.progress;
+    let y = t.sy * H + (t.ey * H - t.sy * H) * egg.progress;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(egg.rot);
+    ctx.fillText('🥚', 0, 0);
+    ctx.restore();
+  }
+
+  // Волк и Корзина
+  ctx.save();
+  ctx.translate(W/2, H/2);
+  ctx.rotate(wolfAngle);
+
+  ctx.font = `${s*0.14}px serif`;
+  ctx.fillText('🐺', -s*0.08, 0);
+  
+  // Корзина летит к цели
+  let basketPulse = 1.0 + Math.sin(Date.now() * 0.01) * 0.05;
+  ctx.font = `${s*0.1 * basketPulse}px serif`;
+  ctx.fillText('🧺', s*0.1, 0);
+  ctx.restore();
+
+  // Частицы
+  for (let p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Всплывающий текст
+  for (let p of popups) {
+    ctx.globalAlpha = p.life;
+    ctx.font = `bold ${s*0.05}px sans-serif`;
+    ctx.fillStyle = p.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+gameLoop();
+</script>
+</body>
+</html>

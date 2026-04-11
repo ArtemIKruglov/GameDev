@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Буквопад ⌨️💨</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a1a;--accent:#00ffaa;--hot:#ff3366;--gold:#ffd700;--cyan:#00ddff;--violet:#aa44ff}
+body{background:var(--bg);overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none;height:100vh;width:100vw}
+canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%}
+
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#ui *{pointer-events:auto}
+
+#hud{display:none;position:absolute;top:0;left:0;width:100%;padding:12px 20px;display:none;justify-content:space-between;align-items:flex-start;z-index:20}
+.hud-box{background:rgba(10,10,26,0.7);border:1px solid rgba(0,255,170,0.3);border-radius:12px;padding:8px 16px;backdrop-filter:blur(6px)}
+.hud-label{font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:1px}
+.hud-val{font-size:26px;font-weight:800;color:var(--accent);text-shadow:0 0 12px var(--accent)}
+.hud-val.lives{color:var(--hot);text-shadow:0 0 12px var(--hot)}
+.hud-val.combo{color:var(--gold);text-shadow:0 0 12px var(--gold)}
+#combo-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:80px;font-weight:900;opacity:0;pointer-events:none;z-index:25;text-shadow:0 0 40px var(--gold)}
+
+#screen-start,#screen-over{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;background:rgba(10,10,26,0.92);backdrop-filter:blur(8px)}
+#screen-over{display:none}
+
+.game-title{font-size:clamp(42px,8vw,72px);font-weight:900;background:linear-gradient(135deg,var(--accent),var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;line-height:1.1;margin-bottom:8px}
+.game-subtitle{font-size:clamp(16px,3vw,22px);opacity:0.7;margin-bottom:32px;text-align:center;max-width:400px;line-height:1.5}
+
+.btn{border:none;border-radius:16px;padding:16px 48px;font-size:20px;font-weight:800;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;text-transform:uppercase;letter-spacing:2px}
+.btn:active{transform:scale(0.95)}
+.btn-start{background:linear-gradient(135deg,var(--accent),var(--cyan));color:#0a0a1a;box-shadow:0 0 30px rgba(0,255,170,0.4)}
+.btn-start:hover{box-shadow:0 0 50px rgba(0,255,170,0.6);transform:scale(1.04)}
+.btn-retry{background:linear-gradient(135deg,var(--hot),#ff6644);color:#fff;box-shadow:0 0 30px rgba(255,51,102,0.4)}
+.btn-retry:hover{box-shadow:0 0 50px rgba(255,51,102,0.6);transform:scale(1.04)}
+
+.instructions{margin-top:28px;font-size:14px;opacity:0.5;text-align:center;line-height:1.8}
+.instructions kbd{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 8px;font-family:inherit;font-size:13px}
+
+.over-title{font-size:clamp(36px,7vw,56px);font-weight:900;color:var(--hot);text-shadow:0 0 40px var(--hot);margin-bottom:12px}
+.over-score{font-size:clamp(48px,10vw,80px);font-weight:900;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+.over-label{font-size:16px;opacity:0.5;margin-bottom:16px}
+.over-best{font-size:20px;color:var(--cyan);margin-bottom:32px;opacity:0.8}
+.over-stats{display:flex;gap:24px;margin-bottom:28px}
+.stat-item{text-align:center}
+.stat-val{font-size:28px;font-weight:800;color:var(--accent)}
+.stat-lbl{font-size:11px;opacity:0.5;text-transform:uppercase;letter-spacing:1px}
+
+.shake{animation:shake 0.3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+
+.flash{animation:flashAnim 0.15s ease}
+@keyframes flashAnim{0%{filter:brightness(3)}100%{filter:brightness(1)}}
+
+@media(max-width:500px){
+.hud-box{padding:6px 10px;border-radius:8px}
+.hud-val{font-size:20px}
+.hud-label{font-size:9px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div class="hud-box"><div class="hud-label">Очки</div><div class="hud-val" id="h-score">0</div></div>
+    <div class="hud-box"><div class="hud-label">Комбо</div><div class="hud-val combo" id="h-combo">0</div></div>
+    <div class="hud-box"><div class="hud-label">Жизни</div><div class="hud-val lives" id="h-lives">5</div></div>
+  </div>
+  <div id="combo-display"></div>
+
+  <div id="screen-start">
+    <div class="game-title">Буквопад</div>
+    <div class="game-subtitle">Печатай буквы быстрее, чем они падают! Чем длиннее комбо — тем больше очков!</div>
+    <button class="btn btn-start" id="btn-go">Играть</button>
+    <div class="instructions">
+      Нажимай <kbd>клавиши</kbd> или <kbd>кликай</kbd> по буквам<br>
+      Не дай им упасть вниз!
+    </div>
+  </div>
+
+  <div id="screen-over">
+    <div class="over-title">Игра окончена</div>
+    <div class="over-score" id="o-score">0</div>
+    <div class="over-label">очков</div>
+    <div class="over-best" id="o-best"></div>
+    <div class="over-stats">
+      <div class="stat-item"><div class="stat-val" id="o-hit">0</div><div class="stat-lbl">Попаданий</div></div>
+      <div class="stat-item"><div class="stat-val" id="o-maxc">0</div><div class="stat-lbl">Макс. комбо</div></div>
+      <div class="stat-item"><div class="stat-val" id="o-lvl">1</div><div class="stat-lbl">Уровень</div></div>
+    </div>
+    <button class="btn btn-retry" id="btn-retry">Ещё раз</button>
+  </div>
+</div>
+
+<script>
+// === ИГРА БУКВОПАД ===
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Элементы UI
+const hud = document.getElementById('hud');
+const hScore = document.getElementById('h-score');
+const hCombo = document.getElementById('h-combo');
+const hLives = document.getElementById('h-lives');
+const comboDisp = document.getElementById('combo-display');
+const screenStart = document.getElementById('screen-start');
+const screenOver = document.getElementById('screen-over');
+const btnGo = document.getElementById('btn-go');
+const btnRetry = document.getElementById('btn-retry');
+
+let W, H, dpr;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Русские буквы для игры
+const LETTERS = 'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯ';
+
+// Цвета букв
+const BCOLORS = [
+  '#00ffaa','#00ddff','#aa44ff','#ff3366','#ffd700',
+  '#ff6644','#44ff88','#ff44aa','#44aaff','#ddaa00'
+];
+
+// Состояние игры
+let state = 'start'; // start, play, over
+let score, lives, combo, maxCombo, hits, level, spawnTimer, spawnInterval, fallSpeed;
+let letters = [], particles = [], bgStars = [];
+let bestScore = 0;
+let shakeTime = 0;
+let comboAnimTime = 0;
+
+// Фоновые звёзды
+function initBgStars() {
+  bgStars = [];
+  for (let i = 0; i < 80; i++) {
+    bgStars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.3,
+      speed: Math.random() * 0.3 + 0.1,
+      alpha: Math.random() * 0.5 + 0.2
+    });
+  }
+}
+initBgStars();
+
+// Класс падающей буквы
+class FallingLetter {
+  constructor() {
+    this.char = LETTERS[Math.floor(Math.random() * LETTERS.length)];
+    this.size = Math.min(W, H) * 0.07 + 10;
+    this.x = Math.random() * (W - this.size * 2) + this.size;
+    this.y = -this.size;
+    this.speed = fallSpeed + Math.random() * 0.5;
+    this.color = BCOLORS[Math.floor(Math.random() * BCOLORS.length)];
+    this.alpha = 1;
+    this.wobble = Math.random() * Math.PI * 2;
+    this.wobbleSpeed = (Math.random() - 0.5) * 2;
+    this.pulse = 0;
+    this.alive = true;
+  }
+  update(dt) {
+    this.y += this.speed * dt * 60;
+    this.wobble += this.wobbleSpeed * dt;
+    this.pulse += dt * 3;
+    // Упала вниз?
+    if (this.y > H + this.size) {
+      this.alive = false;
+      return true; // пропущена
+    }
+    return false;
+  }
+  draw() {
+    const wx = Math.sin(this.wobble) * 8;
+    const px = this.x + wx;
+    const py = this.y;
+    const s = this.size;
+    const pulseScale = 1 + Math.sin(this.pulse) * 0.03;
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.scale(pulseScale, pulseScale);
+
+    // Свечение
+    const grad = ctx.createRadialGradient(0, 0, s * 0.3, 0, 0, s * 1.2);
+    grad.addColorStop(0, this.color + '44');
+    grad.addColorStop(1, this.color + '00');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Кружок
+    ctx.fillStyle = this.color + '22';
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Буква
+    ctx.fillStyle = this.color;
+    ctx.font = `900 ${s * 1.2}px 'Segoe UI',system-ui,sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 15;
+    ctx.fillText(this.char, 0, 2);
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+  }
+  hitTest(mx, my) {
+    const dx = mx - this.x;
+    const dy = my - this.y;
+    return dx * dx + dy * dy < this.size * this.size * 1.5;
+  }
+}
+
+// Частицы
+class Particle {
+  constructor(x, y, color, type) {
+    this.x = x; this.y = y; this.color = color;
+    this.type = type; // 'burst', 'trail', 'ring'
+    if (type === 'burst') {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 6 + 2;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+      this.size = Math.random() * 4 + 2;
+      this.life = 1;
+      this.decay = Math.random() * 0.02 + 0.015;
+    } else if (type === 'ring') {
+      this.radius = 0;
+      this.maxRadius = Math.random() * 40 + 30;
+      this.life = 1;
+      this.decay = 0.03;
+    } else {
+      this.vx = (Math.random() - 0.5) * 1.5;
+      this.vy = -Math.random() * 2 - 0.5;
+      this.size = Math.random() * 2 + 1;
+      this.life = 1;
+      this.decay = Math.random() * 0.015 + 0.008;
+    }
+    this.alive = true;
+  }
+  update(dt) {
+    this.life -= this.decay * dt * 60;
+    if (this.life <= 0) { this.alive = false; return; }
+    if (this.type === 'ring') {
+      this.radius += (this.maxRadius - this.radius) * 0.1 * dt * 60;
+    } else {
+      this.x += this.vx * dt * 60;
+      this.y += this.vy * dt * 60;
+      this.vy += 0.1 * dt * 60;
+      this.vx *= 0.98;
+    }
+  }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    if (this.type === 'ring') {
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 3 * this.life;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function spawnBurst(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push(new Particle(x, y, color, 'burst'));
+  }
+  particles.push(new Particle(x, y, color, 'ring'));
+}
+
+function spawnTrail(x, y, color) {
+  particles.push(new Particle(x, y, color, 'trail'));
+}
+
+// Инициализация игры
+function initGame() {
+  score = 0; lives = 5; combo = 0; maxCombo = 0; hits = 0;
+  level = 1; spawnTimer = 0;
+  spawnInterval = 1.5; fallSpeed = 1.2;
+  letters = []; particles = [];
+  shakeTime = 0; comboAnimTime = 0;
+  updateHud();
+}
+
+function updateHud() {
+  hScore.textContent = score;
+  hCombo.textContent = combo;
+  hLives.textContent = lives;
+}
+
+function showCombo(text) {
+  comboDisp.textContent = text;
+  comboDisp.style.opacity = '1';
+  comboDisp.style.transition = 'none';
+  comboDisp.style.transform = 'translate(-50%,-50%) scale(1.3)';
+  requestAnimationFrame(() => {
+    comboDisp.style.transition = 'opacity 0.8s, transform 0.8s';
+    comboDisp.style.opacity = '0';
+    comboDisp.style.transform = 'translate(-50%,-50%) scale(0.7)';
+  });
+}
+
+function shakeScreen() {
+  document.body.classList.remove('shake');
+  void document.body.offsetWidth;
+  document.body.classList.add('shake');
+  shakeTime = 0.2;
+}
+
+function flashScreen() {
+  document.body.classList.remove('flash');
+  void document.body.offsetWidth;
+  document.body.classList.add('flash');
+}
+
+// Попадание по букве
+function hitLetter(idx) {
+  const l = letters[idx];
+  if (!l || !l.alive) return;
+  l.alive = false;
+  hits++;
+  combo++;
+  if (combo > maxCombo) maxCombo = combo;
+
+  // Очки: базовые + бонус комбо
+  const comboBonus = Math.floor(combo / 5);
+  const pts = 10 + comboBonus * 10;
+  score += pts;
+
+  // Эффекты
+  spawnBurst(l.x, l.y, l.color, 15 + combo * 2);
+  flashScreen();
+
+  // Комбо-надписи
+  if (combo === 5) showCombo('5x Комбо!');
+  else if (combo === 10) showCombo('10x Огонь!');
+  else if (combo === 20) showCombo('20x Безумие!');
+  else if (combo === 30) showCombo('30x БОГ!');
+  else if (combo % 10 === 0 && combo > 30) showCombo(combo + 'x !!!');
+
+  // Уровни и прогрессия
+  const newLevel = Math.floor(score / 100) + 1;
+  if (newLevel > level) {
+    level = newLevel;
+    fallSpeed = 1.2 + level * 0.15;
+    spawnInterval = Math.max(0.35, 1.5 - level * 0.08);
+  }
+
+  updateHud();
+}
+
+// Промах — буква упала
+function missLetter() {
+  lives--;
+  combo = 0;
+  shakeScreen();
+  updateHud();
+  if (lives <= 0) endGame();
+}
+
+function endGame() {
+  state = 'over';
+  if (score > bestScore) bestScore = score;
+  hud.style.display = 'none';
+  document.getElementById('o-score').textContent = score;
+  document.getElementById('o-best').textContent = score >= bestScore ? 'Новый рекорд!' : 'Рекорд: ' + bestScore;
+  document.getElementById('o-hit').textContent = hits;
+  document.getElementById('o-maxc').textContent = maxCombo;
+  document.getElementById('o-lvl').textContent = level;
+  screenOver.style.display = 'flex';
+}
+
+function startGame() {
+  screenStart.style.display = 'none';
+  screenOver.style.display = 'none';
+  hud.style.display = 'flex';
+  initGame();
+  state = 'play';
+}
+
+// Управление клавиатурой
+document.addEventListener('keydown', (e) => {
+  if (state !== 'play') return;
+  const key = e.key.toUpperCase();
+  // Ищем букву, которая ближе всего к низу
+  let bestIdx = -1;
+  let bestY = -1;
+  for (let i = 0; i < letters.length; i++) {
+    if (letters[i].alive && letters[i].char === key && letters[i].y > bestY) {
+      bestY = letters[i].y;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx >= 0) {
+    hitLetter(bestIdx);
+  } else {
+    // Неправильная клавиша — сброс комбо
+    if (combo > 0) {
+      combo = 0;
+      updateHud();
+    }
+  }
+});
+
+// Управление мышью/тачем
+function handleClick(mx, my) {
+  if (state !== 'play') return;
+  // Ищем ближайшую к клику букву
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < letters.length; i++) {
+    if (letters[i].alive && letters[i].hitTest(mx, my)) {
+      const dx = mx - letters[i].x;
+      const dy = my - letters[i].y;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+  }
+  if (bestIdx >= 0) hitLetter(bestIdx);
+}
+
+canvas.addEventListener('click', (e) => {
+  handleClick(e.clientX, e.clientY);
+});
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    handleClick(t.clientX, t.clientY);
+  }
+}, { passive: false });
+
+// Кнопки
+btnGo.addEventListener('click', startGame);
+btnRetry.addEventListener('click', startGame);
+
+// Главный цикл
+let lastTime = 0;
+function loop(time) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+
+  // Ресайз звёзд
+  if (bgStars.length === 0) initBgStars();
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Фон — градиент
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0a1a');
+  bgGrad.addColorStop(0.5, '#0d1025');
+  bgGrad.addColorStop(1, '#120a20');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Фоновые звёзды
+  for (const s of bgStars) {
+    s.y += s.speed * dt * 60;
+    if (s.y > H + 5) { s.y = -5; s.x = Math.random() * W; }
+    ctx.globalAlpha = s.alpha + Math.sin(time * 0.002 + s.x) * 0.15;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Линия опасности внизу
+  if (state === 'play') {
+    const lineY = H - 30;
+    ctx.strokeStyle = 'rgba(255,51,102,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(0, lineY);
+    ctx.lineTo(W, lineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if (state === 'play') {
+    // Спавн букв
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      letters.push(new FallingLetter());
+      spawnTimer = spawnInterval;
+    }
+
+    // Обновление букв
+    for (let i = letters.length - 1; i >= 0; i--) {
+      const l = letters[i];
+      if (!l.alive) { letters.splice(i, 1); continue; }
+      const missed = l.update(dt);
+      if (missed) {
+        letters.splice(i, 1);
+        missLetter();
+        // Красные частицы при промахе
+        spawnBurst(l.x, H - 20, '#ff3366', 8);
+      }
+    }
+
+    // Тряска
+    if (shakeTime > 0) {
+      shakeTime -= dt;
+      const sx = (Math.random() - 0.5) * 6;
+      const sy = (Math.random() - 0.5) * 6;
+      ctx.save();
+      ctx.translate(sx, sy);
+    }
+
+    // Рисуем буквы
+    for (const l of letters) {
+      if (l.alive) l.draw();
+    }
+
+    if (shakeTime > 0 || document.body.classList.contains('shake')) {
+      ctx.restore();
+    }
+  }
+
+  // Частицы (рисуем всегда для красоты)
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.update(dt);
+    if (!p.alive) { particles.splice(i, 1); continue; }
+    p.draw();
+  }
+
+  // Декоративные линии-сетка на фоне
+  ctx.globalAlpha = 0.03;
+  ctx.strokeStyle = '#00ffaa';
+  ctx.lineWidth = 1;
+  const gridSize = 60;
+  const offsetY = (time * 0.02) % gridSize;
+  for (let y = -gridSize + offsetY; y < H; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
