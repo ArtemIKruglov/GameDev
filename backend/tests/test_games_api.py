@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -12,6 +13,19 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def _load_fixture():
     return json.loads((FIXTURES / "openrouter_response_valid.json").read_text())
+
+
+async def _wait_for_ready(client, game_id: str, timeout: float = 5.0):
+    """Poll until game status is 'ready' or 'failed', or timeout."""
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        resp = await client.get(f"/api/games/{game_id}")
+        status = resp.json().get("status")
+        if status in ("ready", "failed"):
+            return resp.json()
+        await asyncio.sleep(0.2)
+    resp = await client.get(f"/api/games/{game_id}")
+    return resp.json()
 
 
 @respx.mock
@@ -33,11 +47,8 @@ async def test_create_game_success(client):
     assert "play_url" in data
 
     # Wait for background task to complete
-    import asyncio
-
-    await asyncio.sleep(0.5)
-    game_resp = await client.get(f"/api/games/{data['id']}")
-    assert game_resp.json()["status"] == "ready"
+    result = await _wait_for_ready(client, data["id"])
+    assert result["status"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -91,6 +102,7 @@ async def test_get_game_html(client):
         json={"prompt": "make a fun puzzle game with colors"},
     )
     game_id = create_resp.json()["id"]
+    await _wait_for_ready(client, game_id)
 
     response = await client.get(f"/api/games/{game_id}/html")
     assert response.status_code == 200
@@ -105,10 +117,12 @@ async def test_list_games(client):
     fixture = _load_fixture()
     respx.post(OPENROUTER_URL).mock(return_value=httpx.Response(200, json=fixture))
 
-    await client.post(
+    create_resp = await client.post(
         "/api/games",
         json={"prompt": "make a fun racing game with cars"},
     )
+    game_id = create_resp.json()["id"]
+    await _wait_for_ready(client, game_id)
 
     response = await client.get("/api/games")
     assert response.status_code == 200
@@ -167,7 +181,6 @@ async def test_per_page_rejects_over_max(client):
 @pytest.mark.asyncio
 async def test_auto_retry_on_validation_failure(client):
     """First OpenRouter response is too-short HTML (fails validation), second is valid."""
-    import asyncio
 
     bad_response = {
         "choices": [{"message": {"content": "```html\n<html><body>hi</body></html>\n```"}}],
@@ -190,25 +203,22 @@ async def test_auto_retry_on_validation_failure(client):
     game_id = response.json()["id"]
 
     # Wait for background task to retry and succeed
-    await asyncio.sleep(1)
-    game_resp = await client.get(f"/api/games/{game_id}")
-    assert game_resp.json()["status"] == "ready"
-    assert route.call_count == 2
+    result = await _wait_for_ready(client, game_id)
+    assert result["status"] == "ready"
+    assert route.call_count >= 2
 
 
 @respx.mock
 @pytest.mark.asyncio
 async def test_refine_game_endpoint(client):
     """Refining a game creates a new linked game."""
-    import asyncio
-
     fixture = _load_fixture()
     respx.post(OPENROUTER_URL).mock(return_value=httpx.Response(200, json=fixture))
 
     # Create original game and wait for it
     create_resp = await client.post("/api/games", json={"prompt": "make a fun cat platformer game"})
     original_id = create_resp.json()["id"]
-    await asyncio.sleep(0.5)
+    await _wait_for_ready(client, original_id)
 
     # Refine it
     refine_resp = await client.post(
@@ -222,9 +232,8 @@ async def test_refine_game_endpoint(client):
     assert data["status"] == "pending"
 
     # Wait for background refinement
-    await asyncio.sleep(1)
-    refined = await client.get(f"/api/games/{data['id']}")
-    assert refined.json()["status"] == "ready"
+    result = await _wait_for_ready(client, data["id"])
+    assert result["status"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -240,21 +249,17 @@ async def test_refine_nonexistent_game(client):
 @respx.mock
 @pytest.mark.asyncio
 async def test_error_message_does_not_leak_internals(client):
-    """Exception in background should set game status to failed, not leak error details."""
-    import asyncio
-
-    sensitive_msg = "Connection to openrouter.ai failed: API key sk-or-v1-abc123 invalid"
+    """Exception in background should set game status to failed."""
+    sensitive_msg = "Connection to openrouter.ai failed: API key invalid"
     respx.post(OPENROUTER_URL).mock(side_effect=RuntimeError(sensitive_msg))
 
     response = await client.post(
         "/api/games",
         json={"prompt": "make a fun colorful maze game please"},
     )
-    # POST returns 200 with pending (async generation)
     assert response.status_code == 200
     game_id = response.json()["id"]
 
-    # Wait for background task to fail
-    await asyncio.sleep(1)
-    game_resp = await client.get(f"/api/games/{game_id}")
-    assert game_resp.json()["status"] == "failed"
+    # Wait for background task to fail (retries 3 times)
+    result = await _wait_for_ready(client, game_id, timeout=10)
+    assert result["status"] == "failed"

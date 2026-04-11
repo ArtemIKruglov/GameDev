@@ -125,6 +125,15 @@ async def test_csp_headers_complete(client):
     )
     game_id = create_resp.json()["id"]
 
+    # Wait for async generation to complete
+    import asyncio
+
+    for _ in range(25):
+        r = await client.get(f"/api/games/{game_id}")
+        if r.json().get("status") in ("ready", "failed"):
+            break
+        await asyncio.sleep(0.2)
+
     html_resp = await client.get(f"/api/games/{game_id}/html")
     csp = html_resp.headers.get("content-security-policy", "")
     assert "connect-src 'none'" in csp

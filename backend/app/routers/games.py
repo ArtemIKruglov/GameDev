@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.services.content_filter import filter_input, filter_output
 from app.services.game_generator import generate_game, validate_game_html
+from app.services.game_validator import full_validate
 from app.services.rate_limiter import check_rate_limit, record_rate_usage
 
 logger = logging.getLogger(__name__)
@@ -86,35 +87,79 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
 
 
 async def _generate_in_background(game_id: str, prompt: str, session_id: str) -> None:
-    """Background task: generate game via AI, update DB when done."""
+    """Background task: generate game via AI, validate, retry with error context, update DB."""
     try:
-        max_attempts = 2
+        max_attempts = (
+            3  # Increased: original + retry with generic hint + retry with specific errors
+        )
         result = None
+        last_issues: list[str] = []
 
         for attempt in range(max_attempts):
             prompt_text = prompt
-            if attempt > 0:
+            if attempt == 1:
+                # First retry — generic hint
                 prompt_text = (
                     f"{prompt}\n\nIMPORTANT: Generate a working, "
-                    "complete HTML game. Ensure all JavaScript is correct."
+                    "complete HTML game. Ensure all JavaScript is correct. "
+                    "Initialize ALL arrays as `let arr = [];` NOT `let arr;`."
                 )
-                logger.info("Game %s: retry attempt %d", game_id, attempt + 1)
+                logger.info("Game %s: retry attempt %d (generic hint)", game_id, attempt + 1)
+            elif attempt >= 2 and last_issues:
+                # Second retry — specific errors from validation
+                error_details = "\n".join(f"- {issue}" for issue in last_issues[:5])
+                prompt_text = (
+                    f"{prompt}\n\n"
+                    "CRITICAL FIX REQUIRED — the previous version had these JavaScript errors:\n"
+                    f"{error_details}\n\n"
+                    "Fix ALL of these issues. Ensure every variable used in gameLoop/draw/update "
+                    "is initialized at declaration time with a default value ([] for arrays, "
+                    "{{}} for objects, 0 for numbers)."
+                )
+                logger.info(
+                    "Game %s: retry attempt %d with %d specific errors",
+                    game_id,
+                    attempt + 1,
+                    len(last_issues),
+                )
 
             result = await generate_game(prompt_text)
 
+            # --- Safety filter ---
             output_safe, _ = filter_output(result["html"])
             if not output_safe:
                 if attempt < max_attempts - 1:
+                    last_issues = ["Output failed safety filter"]
                     continue
                 await update_game(game_id, status="failed", error_message="safety")
                 return
 
-            is_valid, _ = validate_game_html(result["html"])
+            # --- Basic structure validation (fast) ---
+            is_valid, reason = validate_game_html(result["html"])
             if not is_valid:
                 if attempt < max_attempts - 1:
+                    last_issues = [reason]
                     continue
                 await update_game(game_id, status="failed", error_message="invalid")
                 return
+
+            # --- Deep validation: static + runtime (new!) ---
+            passed, issues = await full_validate(result["html"])
+            if not passed:
+                logger.warning(
+                    "Game %s failed deep validation (attempt %d): %s",
+                    game_id,
+                    attempt + 1,
+                    "; ".join(issues[:3]),
+                )
+                if attempt < max_attempts - 1:
+                    last_issues = issues
+                    continue
+                # Last attempt failed — save anyway but log warning
+                logger.warning(
+                    "Game %s: deep validation failed on final attempt, saving with issues",
+                    game_id,
+                )
 
             break
 
