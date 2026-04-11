@@ -199,19 +199,24 @@ async def runtime_validate(html: str, timeout_sec: int = 5) -> tuple[bool, list[
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(html)
 
-        proc = await asyncio.create_subprocess_exec(
-            "node",
-            validator_path,
-            tmp_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "node",
+                validator_path,
+                tmp_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            logger.info("Node.js not available — runtime validation skipped")
+            return True, ["[WARNING] jsdom not installed — runtime validation skipped"]
+
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
         except TimeoutError:
             proc.kill()
             await proc.wait()
-            return True, ["[WARNING] Runtime validation timed out — game may be OK"]
+            return True, ["[WARNING] Runtime validation timed out"]
 
         output = stdout.decode("utf-8", errors="replace").strip()
         if not output:
