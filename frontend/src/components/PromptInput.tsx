@@ -102,13 +102,6 @@ export default function PromptInput({
         </span>
       </div>
 
-      {value.trim().length > 0 && value.trim().length < 30 && (
-        <p style={styles.hint}>
-          💡 Добавь деталей — какой персонаж, что собирать, кто мешает?
-          Чем подробнее, тем интереснее игра!
-        </p>
-      )}
-
       <div style={styles.actions}>
         {hasSpeech && (
           <button
@@ -166,14 +159,6 @@ const styles = {
     fontSize: "0.8rem",
     color: "var(--color-text-muted)",
     pointerEvents: "none" as const,
-  } as React.CSSProperties,
-
-  hint: {
-    marginTop: 8,
-    fontSize: "0.9rem",
-    color: "var(--color-accent-warm)",
-    textAlign: "center" as const,
-    lineHeight: 1.4,
   } as React.CSSProperties,
 
   actions: {
