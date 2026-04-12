@@ -141,6 +141,8 @@ def filter_input(prompt: str) -> tuple[bool, str]:
 
 def filter_output(html: str) -> tuple[bool, str]:
     """Check if generated HTML is safe. Returns (is_safe, reason)."""
+    if not html:
+        return False, "Empty HTML"
     for pattern, description in FORBIDDEN_OUTPUT_PATTERNS:
         if re.search(pattern, html, re.IGNORECASE):
             return False, f"Generated HTML contains forbidden pattern: {description}"

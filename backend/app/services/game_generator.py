@@ -183,17 +183,38 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def extract_html_from_response(text: str) -> str | None:
-    """Extract HTML from a markdown code fence, or return raw HTML if it starts with <!DOCTYPE."""
-    # Try to find ```html ... ``` code fence (case-insensitive, allow extra whitespace)
+    """Extract HTML from a markdown code fence, or return raw HTML."""
+    if not text:
+        return None
+
+    # Try to find ```html ... ``` code fence (case-insensitive)
     match = re.search(r"```(?:html)?\s*\n?(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if match:
         content = match.group(1).strip()
-        if "<!DOCTYPE" in content.upper() or "<html" in content.lower():
+        # Accept if has HTML markers or just <canvas>/<script> (partial)
+        if any(
+            marker in content.lower()
+            for marker in ["<!doctype", "<html", "<canvas", "<script", "<body"]
+        ):
+            # If missing <html> wrapper, wrap it
+            if "<html" not in content.lower():
+                content = (
+                    "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                    "<style>body{margin:0;overflow:hidden;background:#1a1a2e;}"
+                    "</style></head><body>" + content + "</body></html>"
+                )
             return content
 
-    # If the response itself looks like raw HTML
+    # Raw HTML without code fence
     stripped = text.strip()
-    if stripped.upper().startswith("<!DOCTYPE") or stripped.lower().startswith("<html"):
+    lower = stripped.lower()
+    if any(lower.startswith(m) for m in ["<!doctype", "<html", "<canvas", "<script"]):
+        if "<html" not in lower:
+            stripped = (
+                "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                "<style>body{margin:0;overflow:hidden;background:#1a1a2e;}"
+                "</style></head><body>" + stripped + "</body></html>"
+            )
         return stripped
 
     return None
@@ -201,6 +222,8 @@ def extract_html_from_response(text: str) -> str | None:
 
 def validate_game_html(html: str) -> tuple[bool, str]:
     """Validate that the HTML contains a working game. Returns (is_valid, reason)."""
+    if not html:
+        return False, "Empty HTML from model"
     if len(html) < 200:
         return False, "Game HTML is too short to be a real game"
 
