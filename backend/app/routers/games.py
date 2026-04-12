@@ -86,8 +86,32 @@ async def create_game_endpoint(body: GameCreateRequest, request: Request):
     return _game_to_response(game)
 
 
+def _enrich_short_prompt(prompt: str) -> str:
+    """For short prompts (<30 chars), add context to help the model
+    generate a fuller, more engaging game.
+    """
+    p = prompt.strip()
+    if len(p) >= 30:
+        return p
+
+    # Short prompt — add rich context
+    enriched = (
+        f"{p}\n\n"
+        "Промпт короткий — сам придумай интересные детали! "
+        "Добавь: минимум 2 механики (например, прыжки + сбор, "
+        "или стрельба + уклонение), прогрессию сложности "
+        "(враги быстрее со временем), score multiplier за серии, "
+        "яркие анимации и частицы, звуки beep при событиях. "
+        "Игра должна залипать на 5+ минут — придумай крутой core loop."
+    )
+    return enriched
+
+
 async def _generate_in_background(game_id: str, prompt: str, session_id: str) -> None:
     """Background task: generate game via AI, validate, retry with error context, update DB."""
+    # Enrich short prompts for richer games
+    prompt = _enrich_short_prompt(prompt)
+
     try:
         max_attempts = (
             3  # Increased: original + retry with generic hint + retry with specific errors
